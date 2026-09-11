@@ -1,6 +1,7 @@
-import { Assessment, Chunk, Concept, Conversation, Material, Mastery, Message, Project } from '../models/index.js'
+import { Conversation, Message } from '../models/index.js'
 import { cosineSimilarity, generateEmbedding } from './embedding.service.js'
 import { AIService } from './ai-provider-router.js'
+import { buildTutorContext } from './learning-context.service.js'
 
 const retrievalLimit = 5
 const evidenceThreshold = 0.18
@@ -50,19 +51,12 @@ function appendSources(answer, citations) {
 
 export async function answerQuestion({ projectId, userId, question, conversationId }) {
   const { evidence } = await retrieveEvidence({ projectId, question })
-  const [project, materials, concepts, mastery, assessments, history] = await Promise.all([
-    Project.findById(projectId).select('title description learningGoal status').lean(),
-    Material.find({ projectId, processingStatus: 'READY' }).select('title type metadata').limit(20).lean(),
-    Concept.find({ projectId }).select('name description').limit(40).lean(),
-    Mastery.find({ projectId, userId }).select('conceptId score level evidence').limit(40).lean(),
-    Assessment.find({ projectId, userId }).sort({ createdAt: -1 }).select('summary strengths gaps createdAt').limit(5).lean(),
-    conversationId ? Message.find({ conversationId, projectId }).sort({ createdAt: -1 }).limit(12).select('role content').lean() : Promise.resolve([]),
-  ])
+  const tutorContext = await buildTutorContext({ projectId, userId, conversationId })
   let result = evidence.length ? groundedAnswer(evidence) : refusal(question)
 
   if (evidence.length) {
     const context = evidence.map((chunk, index) => `[${index + 1}] ${chunk.text ?? chunk.content}`).join('\n\n')
-    const learnerContext = JSON.stringify({ project, materials, concepts, mastery, assessments, conversationHistory: history.reverse() })
+    const learnerContext = JSON.stringify(tutorContext)
     try {
       const generated = await AIService.generate({
         projectId,
