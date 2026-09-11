@@ -1,0 +1,35 @@
+#root { min-height: 100vh; }
+.app-shell { min-height: 100vh; max-width: 1180px; margin: 0 auto; padding: 0 48px; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; border-bottom: 1px solid var(--line); }
+.brand-mark { color: var(--ink); font-weight: 700; letter-spacing: -.03em; }
+.brand-mark span { display: inline-grid; place-items: center; width: 32px; height: 32px; margin-right: 10px; background: var(--coral); color: white; font-size: .72rem; letter-spacing: 0; }
+.environment { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .78rem; }
+.environment strong { color: var(--ink); font-weight: 600; }
+.status-dot, .pulse { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 4px rgba(65, 163, 124, .12); }
+.intro { max-width: 760px; padding: 104px 0 74px; animation: reveal .7s ease both; }
+.eyebrow, .section-label, .mono-label { text-transform: uppercase; font: 600 .7rem/1.2 var(--mono); letter-spacing: .1em; }
+.eyebrow { color: var(--coral); margin: 0 0 22px; }
+h1 { max-width: 730px; margin: 0; color: var(--ink); font: 500 clamp(3.2rem, 7vw, 6.4rem)/.95 var(--display); letter-spacing: -.065em; }
+h1 em { color: var(--coral); font-style: normal; }
+.lede { max-width: 500px; margin: 30px 0 0; color: var(--muted); font-size: 1.08rem; line-height: 1.7; }
+.foundation-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; animation: reveal .7s .12s ease both; }
+.path-card, .status-card { min-height: 300px; padding: 28px; border: 1px solid var(--line); background: rgba(255,255,255,.58); }
+.path-card { background: var(--ink); color: white; }
+.card-heading { display: flex; align-items: center; justify-content: space-between; }
+.path-card .section-label { color: #a9b8b1; }
+.mono-label { color: var(--muted); }
+.path-card h2 { margin: 56px 0 12px; font: 500 2rem/1.1 var(--display); letter-spacing: -.04em; }
+.path-card p { max-width: 470px; color: #a9b8b1; line-height: 1.6; }
+.loop-line { display: flex; align-items: center; gap: 12px; margin-top: 34px; color: #f1e9dd; font: 600 .76rem var(--mono); }
+.loop-line i { color: var(--coral); font-style: normal; font-size: 1.1rem; }
+.status-card .section-label { color: var(--coral); }
+.status-card ul { padding: 0; margin: 40px 0 0; list-style: none; }
+.status-card li { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-top: 1px solid var(--line); }
+.status-card li div { display: flex; flex-direction: column; gap: 3px; }
+.status-card strong { color: var(--ink); font-size: .9rem; }
+.status-card small { color: var(--muted); font-size: .74rem; }
+.check-status { color: var(--mint); font: 600 .68rem var(--mono); text-transform: uppercase; }
+.check-status.pending { color: var(--muted); }
+footer { display: flex; justify-content: space-between; margin-top: auto; padding: 28px 0; color: var(--muted); font: .68rem var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+@keyframes reveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 700px) { .app-shell { padding: 0 22px; } .topbar { align-items: flex-start; gap: 16px; } .environment { font-size: .68rem; text-align: right; } .intro { padding: 72px 0 54px; } .foundation-grid { grid-template-columns: 1fr; } .path-card, .status-card { min-height: auto; padding: 24px; } .path-card h2 { margin-top: 42px; } .loop-line { gap: 7px; font-size: .63rem; } footer { gap: 16px; line-height: 1.5; } }

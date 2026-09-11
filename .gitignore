@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.local
+
+# Local IDE and OS files
+.vscode/
+.DS_Store
+Thumbs.db
