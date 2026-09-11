@@ -39,6 +39,10 @@ Every conversation request verifies the authenticated user through the project a
 
 Grounded citations resolve each chunk to its material title and preserved PDF page number. Answers append a visible `Sources` block, while refusals contain no citations and clearly explain that the project materials do not support the question.
 
+## Adaptive quiz engine
+
+Quiz generation ranks concepts by the learner's project-scoped mastery score and selects the weakest concepts first. Scores below `0.4` receive easy foundational questions, scores from `0.4` through `0.7` receive medium questions, and scores above `0.7` receive hard application questions. LLM output is parsed and validated against the required structured question shape; malformed or unavailable responses use a deterministic fallback question. Quiz attempts update mastery with bounded deterministic deltas and return actionable feedback.
+
 ## Critical demo path
 
 Space -> Project -> Material -> Processing -> Tutor -> grounded answer -> citation -> refusal -> quiz -> assessment -> mastery -> growth -> analytics -> recommendation -> admin.

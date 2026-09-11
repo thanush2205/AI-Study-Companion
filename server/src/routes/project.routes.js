@@ -6,6 +6,7 @@ import { requireProjectAccess } from '../middleware/project-access.js'
 import { enqueueMaterialJob } from '../services/material-queue.js'
 import { saveMaterialFile } from '../services/material-storage.js'
 import { answerQuestion } from '../services/knowledge-engine.js'
+import { generateAdaptiveQuiz, publicQuiz } from '../services/quiz-engine.js'
 
 const router = express.Router()
 const projectAccess = [authenticate, requireProjectAccess]
@@ -125,6 +126,15 @@ router.get('/:projectId/quizzes', projectAccess, async (request, response, next)
   try {
     const quizzes = await Quiz.find({ projectId: request.scope.projectId }).sort({ createdAt: -1 }).lean()
     return response.json({ projectId: request.scope.projectId, quizzes })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:projectId/quizzes', projectAccess, async (request, response, next) => {
+  try {
+    const quiz = await generateAdaptiveQuiz({ projectId: request.scope.projectId, userId: request.user._id, count: request.body.count })
+    return response.status(201).json({ quiz: publicQuiz(quiz) })
   } catch (error) {
     return next(error)
   }
