@@ -5,6 +5,7 @@ import morgan from 'morgan'
 import mongoose from 'mongoose'
 import Redis from 'ioredis'
 import env from './config/env.js'
+import projectRouter from './routes/project.routes.js'
 
 const app = express()
 const redis = env.redisUrl ? new Redis(env.redisUrl, { lazyConnect: true }) : null
@@ -13,6 +14,8 @@ app.use(helmet())
 app.use(cors({ origin: env.clientOrigin }))
 app.use(express.json())
 app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'))
+
+app.use('/api/projects', projectRouter)
 
 app.get('/api/health', (_request, response) => {
   response.json({ status: 'ok', service: 'study-companion-api', timestamp: new Date().toISOString() })
@@ -34,6 +37,11 @@ app.get('/api/ready', (_request, response) => {
 
 app.use((_request, response) => {
   response.status(404).json({ error: 'Route not found' })
+})
+
+app.use((error, _request, response, _next) => {
+  console.error(error)
+  response.status(500).json({ error: 'Internal server error' })
 })
 
 const server = app.listen(env.port, () => {
