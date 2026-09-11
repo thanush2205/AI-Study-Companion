@@ -1,4 +1,4 @@
-import { Chunk, Conversation, Material, Message } from '../models/index.js'
+import { Assessment, Chunk, Concept, Conversation, Material, Mastery, Message, Project } from '../models/index.js'
 import { cosineSimilarity, generateEmbedding } from './embedding.service.js'
 import { AIService } from './ai-provider-router.js'
 
@@ -41,17 +41,26 @@ function groundedAnswer(evidence) {
 
 export async function answerQuestion({ projectId, userId, question, conversationId }) {
   const { evidence } = await retrieveEvidence({ projectId, question })
+  const [project, materials, concepts, mastery, assessments, history] = await Promise.all([
+    Project.findById(projectId).select('title description learningGoal status').lean(),
+    Material.find({ projectId, processingStatus: 'READY' }).select('title type metadata').limit(20).lean(),
+    Concept.find({ projectId }).select('name description').limit(40).lean(),
+    Mastery.find({ projectId, userId }).select('conceptId score level evidence').limit(40).lean(),
+    Assessment.find({ projectId, userId }).sort({ createdAt: -1 }).select('summary strengths gaps createdAt').limit(5).lean(),
+    conversationId ? Message.find({ conversationId, projectId }).sort({ createdAt: -1 }).limit(12).select('role content').lean() : Promise.resolve([]),
+  ])
   let result = evidence.length ? groundedAnswer(evidence) : refusal(question)
 
   if (evidence.length) {
     const context = evidence.map((chunk, index) => `[${index + 1}] ${chunk.text ?? chunk.content}`).join('\n\n')
+    const learnerContext = JSON.stringify({ project, materials, concepts, mastery, assessments, conversationHistory: history.reverse() })
     try {
       const generated = await AIService.generate({
         projectId,
         userId,
         operation: 'tutor-answer',
-        instructions: 'Answer only from the supplied study excerpts. Be concise. If the excerpts do not support the answer, say that the material is insufficient. Preserve citation markers like [1].',
-        input: `Question: ${question}\n\nStudy excerpts:\n${context}`,
+        instructions: 'You are a grounded study tutor. Answer only from the supplied study excerpts. Use project, learner, assessment, and conversation context to tailor the explanation, but never invent facts beyond the excerpts. Be concise and preserve citation markers like [1]. If evidence is insufficient, explicitly say so.',
+        input: `Question: ${question}\n\nLearning context:\n${learnerContext}\n\nStudy excerpts:\n${context}`,
       })
       result = { ...result, answer: generated.text, provider: generated.provider, model: generated.model }
     } catch {
@@ -73,7 +82,14 @@ export async function answerQuestion({ projectId, userId, question, conversation
     metadata: { grounded: !result.refused, evidenceCount: evidence.length, evidenceThreshold, provider: result.provider, model: result.model },
   })
 
-  return { conversationId: conversation._id, messageId: assistantMessage._id, ...result, evidenceCount: evidence.length }
+  return {
+    conversationId: conversation._id,
+    messageId: assistantMessage._id,
+    responseType: result.refused ? 'refusal' : 'grounded-answer',
+    confidence: evidence.length ? Number(Math.max(...evidence.map((item) => item.score)).toFixed(4)) : 0,
+    ...result,
+    evidenceCount: evidence.length,
+  }
 }
 
 export { evidenceThreshold }

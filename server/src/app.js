@@ -10,6 +10,7 @@ import adminRouter from './routes/admin.routes.js'
 import projectRouter from './routes/project.routes.js'
 import materialRouter from './routes/material.routes.js'
 import spaceRouter from './routes/space.routes.js'
+import conversationRouter from './routes/conversation.routes.js'
 import { errorHandler } from './middleware/error-handler.js'
 
 const app = express()
@@ -25,6 +26,7 @@ app.use('/api/admin', adminRouter)
 app.use('/api/projects', projectRouter)
 app.use('/api/materials', materialRouter)
 app.use('/api/spaces', spaceRouter)
+app.use('/api', conversationRouter)
 
 app.get('/api/health', (_request, response) => {
   response.json({ status: 'ok', service: 'study-companion-api', timestamp: new Date().toISOString() })

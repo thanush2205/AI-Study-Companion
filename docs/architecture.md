@@ -29,6 +29,14 @@ Authentication uses `Authorization: Bearer <jwt>`. `authenticate` resolves the t
 
 Authentication endpoints are `POST /api/auth/register`, `POST /api/auth/login`, and `GET /api/auth/me`. The admin proof endpoint is `GET /api/admin/status`.
 
+## AI tutor conversation contract
+
+- `POST /api/projects/:projectId/conversations` creates a project-owned conversation.
+- `POST /api/conversations/:conversationId/messages` loads project materials, concepts, prior messages, mastery, assessments, and learner activity before RAG and provider generation.
+- `GET /api/conversations/:id` returns the authorized conversation, project context, and message history.
+
+Every conversation request verifies the authenticated user through the project and space ownership chain. Tutor responses are structured with `responseType`, `confidence`, `evidenceCount`, citations, and provider metadata; unsupported questions return a refusal instead of an invented answer.
+
 ## Critical demo path
 
 Space -> Project -> Material -> Processing -> Tutor -> grounded answer -> citation -> refusal -> quiz -> assessment -> mastery -> growth -> analytics -> recommendation -> admin.
