@@ -2,6 +2,7 @@ import { PDFParse } from 'pdf-parse'
 import { Chunk, Material } from '../models/index.js'
 import { ProcessingJob } from '../models/index.js'
 import { readMaterialFile } from './material-storage.js'
+import { generateEmbedding } from './embedding.service.js'
 
 const chunkSize = 1200
 const chunkOverlap = 150
@@ -42,8 +43,10 @@ export async function processMaterial(materialId, jobId) {
       projectId: material.projectId,
       materialId,
       chunkIndex,
+      text: content,
       content,
       tokenCount: Math.ceil(content.length / 4),
+      embedding: generateEmbedding(content),
     })))
 
     await Material.findByIdAndUpdate(materialId, {

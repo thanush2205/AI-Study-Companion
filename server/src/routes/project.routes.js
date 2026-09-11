@@ -5,6 +5,7 @@ import { authenticate } from '../middleware/auth.js'
 import { requireProjectAccess } from '../middleware/project-access.js'
 import { enqueueMaterialJob } from '../services/material-queue.js'
 import { saveMaterialFile } from '../services/material-storage.js'
+import { answerQuestion } from '../services/knowledge-engine.js'
 
 const router = express.Router()
 const projectAccess = [authenticate, requireProjectAccess]
@@ -48,6 +49,23 @@ router.delete('/:projectId', projectAccess, async (request, response, next) => {
 
 router.get('/:projectId', projectAccess, (request, response) => {
   response.json({ project: request.project })
+})
+
+router.post('/:projectId/tutor/ask', projectAccess, async (request, response, next) => {
+  try {
+    const { question, conversationId } = request.body
+    if (!question?.trim()) return response.status(400).json({ error: 'A question is required' })
+
+    const result = await answerQuestion({
+      projectId: request.scope.projectId,
+      userId: request.user._id,
+      question: question.trim(),
+      conversationId,
+    })
+    return response.json({ projectId: request.scope.projectId, ...result })
+  } catch (error) {
+    return next(error)
+  }
 })
 
 router.get('/:projectId/materials', projectAccess, async (request, response, next) => {
