@@ -8,7 +8,7 @@ const materialSchema = new mongoose.Schema({
   type: { type: String, enum: ['pdf', 'document', 'text', 'url'], required: true },
   sourceUrl: String,
   storageKey: String,
-  processingStatus: { type: String, enum: ['pending', 'processing', 'ready', 'failed'], default: 'pending' },
+  processingStatus: { type: String, enum: ['UPLOADED', 'QUEUED', 'PROCESSING', 'READY', 'FAILED'], default: 'UPLOADED' },
   processingError: String,
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, timestamps)

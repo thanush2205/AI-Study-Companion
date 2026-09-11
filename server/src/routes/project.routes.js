@@ -1,10 +1,17 @@
 import express from 'express'
+import multer from 'multer'
 import { Activity, Conversation, Material, Project, Quiz } from '../models/index.js'
 import { authenticate } from '../middleware/auth.js'
 import { requireProjectAccess } from '../middleware/project-access.js'
+import { processMaterial } from '../services/material-processor.js'
 
 const router = express.Router()
 const projectAccess = [authenticate, requireProjectAccess]
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_request, file, callback) => callback(null, file.mimetype === 'application/pdf'),
+})
 
 router.patch('/:projectId', projectAccess, async (request, response, next) => {
   try {
@@ -46,6 +53,26 @@ router.get('/:projectId/materials', projectAccess, async (request, response, nex
   try {
     const materials = await Material.find({ projectId: request.scope.projectId }).sort({ createdAt: -1 }).lean()
     return response.json({ projectId: request.scope.projectId, materials })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:projectId/materials', projectAccess, upload.single('file'), async (request, response, next) => {
+  try {
+    if (!request.file) return response.status(400).json({ error: 'A PDF file is required in the file field' })
+
+    const material = await Material.create({
+      projectId: request.scope.projectId,
+      uploadedBy: request.user._id,
+      title: request.body.title?.trim() || request.file.originalname.replace(/\.pdf$/i, ''),
+      type: 'pdf',
+      processingStatus: 'QUEUED',
+      metadata: { originalName: request.file.originalname, mimeType: request.file.mimetype, size: request.file.size },
+    })
+
+    setImmediate(() => processMaterial(material._id, request.file.buffer))
+    return response.status(202).json({ material })
   } catch (error) {
     return next(error)
   }

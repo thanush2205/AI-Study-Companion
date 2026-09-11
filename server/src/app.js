@@ -8,6 +8,7 @@ import env from './config/env.js'
 import authRouter from './routes/auth.routes.js'
 import adminRouter from './routes/admin.routes.js'
 import projectRouter from './routes/project.routes.js'
+import materialRouter from './routes/material.routes.js'
 import spaceRouter from './routes/space.routes.js'
 import { errorHandler } from './middleware/error-handler.js'
 
@@ -22,6 +23,7 @@ app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'))
 app.use('/api/auth', authRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/projects', projectRouter)
+app.use('/api/materials', materialRouter)
 app.use('/api/spaces', spaceRouter)
 
 app.get('/api/health', (_request, response) => {

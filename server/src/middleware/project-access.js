@@ -9,7 +9,7 @@ export async function requireProjectAccess(request, response, next) {
   }
 
   const project = await Project.findOne({ _id: projectId, userId: request.user._id })
-    .select('_id spaceId userId name description status')
+    .select('_id spaceId userId title description learningGoal status')
     .lean()
   if (!project) return response.status(404).json({ error: 'Project not found' })
 
