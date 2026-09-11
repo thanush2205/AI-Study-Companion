@@ -32,4 +32,6 @@ npm run dev
 
 The client runs at `http://localhost:5173`. The API health check is `http://localhost:4000/api/health`; readiness is `http://localhost:4000/api/ready`.
 
+Authentication is available at `/api/auth/register`, `/api/auth/login`, and `/api/auth/me`. Send the returned token as `Authorization: Bearer <token>` for protected routes.
+
 MongoDB Atlas and Redis are checked by `/api/ready`. The Atlas URI must remain in your local `.env` and must never be committed. URL-encode special characters in the Atlas database password.

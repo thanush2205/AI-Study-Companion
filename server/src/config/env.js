@@ -10,6 +10,7 @@ const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT ?? 4000),
   clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
+  jwtSecret: process.env.JWT_SECRET ?? 'local-development-only-change-me',
   mongoUri: process.env.MONGODB_URI ?? '',
   redisUrl: process.env.REDIS_URL ?? '',
 }

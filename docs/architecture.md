@@ -16,7 +16,9 @@ AI Study Companion is a modular monolith: one React client, one Express API, one
 
 Every project-dependent document carries a required, indexed `projectId`. Requests to project-scoped routes must provide the authenticated user's ID and pass the ownership chain in `requireProjectScope`: `User -> Space(userId) -> Project(userId, spaceId)`. Controllers then query using the verified `request.scope.projectId`, never an untrusted route value alone.
 
-The first proof route is `GET /api/projects/:projectId/materials` with the user's ID in the `x-user-id` header. This header is a temporary authentication boundary for the prototype and will be replaced by JWT middleware.
+Authentication uses `Authorization: Bearer <jwt>`. `authenticate` resolves the token subject to `req.user`; `requireAdmin` gates admin-only routes; and `requireProjectAccess` validates `req.user -> Space -> Project` before any project resource query. The project, materials, conversations, quizzes, and analytics routes all use this same guard, so User A cannot access User B's project data.
+
+Authentication endpoints are `POST /api/auth/register`, `POST /api/auth/login`, and `GET /api/auth/me`. The admin proof endpoint is `GET /api/admin/status`.
 
 ## Critical demo path
 
