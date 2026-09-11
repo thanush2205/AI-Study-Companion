@@ -37,6 +37,8 @@ Authentication endpoints are `POST /api/auth/register`, `POST /api/auth/login`, 
 
 Every conversation request verifies the authenticated user through the project and space ownership chain. Tutor responses are structured with `responseType`, `confidence`, `evidenceCount`, citations, and provider metadata; unsupported questions return a refusal instead of an invented answer.
 
+Grounded citations resolve each chunk to its material title and preserved PDF page number. Answers append a visible `Sources` block, while refusals contain no citations and clearly explain that the project materials do not support the question.
+
 ## Critical demo path
 
 Space -> Project -> Material -> Processing -> Tutor -> grounded answer -> citation -> refusal -> quiz -> assessment -> mastery -> growth -> analytics -> recommendation -> admin.

@@ -14,12 +14,15 @@ export async function retrieveEvidence({ projectId, question }) {
     .sort((left, right) => right.score - left.score)
     .slice(0, retrievalLimit)
 
-  return { queryEmbedding, evidence: scored }
+  const materialIds = scored.map((chunk) => chunk.materialId)
+  const materials = await Material.find({ _id: { $in: materialIds }, projectId }).select('_id title').lean()
+  const materialTitles = new Map(materials.map((material) => [material._id.toString(), material.title]))
+  return { queryEmbedding, evidence: scored.map((chunk) => ({ ...chunk, materialTitle: materialTitles.get(chunk.materialId.toString()) ?? 'Study material' })) }
 }
 
 function refusal(question) {
   return {
-    answer: `I cannot answer "${question}" from this project's study material. Add a relevant source or ask about something covered in the uploaded documents.`,
+    answer: `I couldn't find enough evidence about this in the learning materials for this project. Try asking about concepts covered in your uploaded materials.`,
     refused: true,
     citations: [],
   }
@@ -30,6 +33,7 @@ function groundedAnswer(evidence) {
     index: index + 1,
     chunkId: chunk._id,
     materialId: chunk.materialId,
+    materialTitle: chunk.materialTitle,
     chunkIndex: chunk.chunkIndex,
     pageNumber: chunk.pageNumber,
     quote: chunk.text ?? chunk.content,
@@ -37,6 +41,11 @@ function groundedAnswer(evidence) {
   }))
   const answer = evidence.map((chunk, index) => `[${index + 1}] ${chunk.text ?? chunk.content}`).join('\n\n')
   return { answer, refused: false, citations, provider: 'extractive-fallback' }
+}
+
+function appendSources(answer, citations) {
+  const sources = citations.map((citation) => `${citation.index}. ${citation.materialTitle} — Page ${citation.pageNumber ?? 'unknown'}`).join('\n')
+  return `${answer.trim()}\n\nSources:\n${sources}`
 }
 
 export async function answerQuestion({ projectId, userId, question, conversationId }) {
@@ -62,11 +71,12 @@ export async function answerQuestion({ projectId, userId, question, conversation
         instructions: 'You are a grounded study tutor. Answer only from the supplied study excerpts. Use project, learner, assessment, and conversation context to tailor the explanation, but never invent facts beyond the excerpts. Be concise and preserve citation markers like [1]. If evidence is insufficient, explicitly say so.',
         input: `Question: ${question}\n\nLearning context:\n${learnerContext}\n\nStudy excerpts:\n${context}`,
       })
-      result = { ...result, answer: generated.text, provider: generated.provider, model: generated.model }
+      result = { ...result, answer: appendSources(generated.text, result.citations), provider: generated.provider, model: generated.model }
     } catch {
       // The extractive answer remains grounded when no provider is configured or both fail.
     }
   }
+  if (!result.refused && result.provider === 'extractive-fallback') result.answer = appendSources(result.answer, result.citations)
   const conversation = conversationId
     ? await Conversation.findOne({ _id: conversationId, projectId, userId })
     : await Conversation.create({ projectId, userId, title: question.slice(0, 80) })

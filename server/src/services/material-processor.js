@@ -7,7 +7,7 @@ import { generateEmbedding } from './embedding.service.js'
 const chunkSize = 1200
 const chunkOverlap = 150
 
-function splitText(text) {
+function splitText(text, pageNumber) {
   const normalized = text.replace(/\s+/g, ' ').trim()
   const chunks = []
   let start = 0
@@ -15,7 +15,7 @@ function splitText(text) {
   while (start < normalized.length) {
     const end = Math.min(start + chunkSize, normalized.length)
     const content = normalized.slice(start, end).trim()
-    if (content) chunks.push(content)
+    if (content) chunks.push({ content, pageNumber })
     if (end === normalized.length) break
     start = end - chunkOverlap
   }
@@ -35,16 +35,18 @@ export async function processMaterial(materialId, jobId) {
     const parsed = await parser.getText()
     await parser.destroy()
     await ProcessingJob.findByIdAndUpdate(job._id, { progress: 55 })
-    const contents = splitText(parsed.text)
+    const pages = parsed.pages?.length ? parsed.pages : [{ num: 1, text: parsed.text }]
+    const contents = pages.flatMap((page) => splitText(page.text, page.num))
     if (!contents.length) throw new Error('No readable text found in PDF')
 
     await Chunk.deleteMany({ materialId })
-    await Chunk.insertMany(contents.map((content, chunkIndex) => ({
+    await Chunk.insertMany(contents.map(({ content, pageNumber }, chunkIndex) => ({
       projectId: material.projectId,
       materialId,
       chunkIndex,
       text: content,
       content,
+      pageNumber,
       tokenCount: Math.ceil(content.length / 4),
       embedding: generateEmbedding(content),
     })))
