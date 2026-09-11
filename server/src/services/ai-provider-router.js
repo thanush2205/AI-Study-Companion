@@ -7,12 +7,8 @@ function providerError(provider, message) {
   return error
 }
 
-function readOpenAIText(payload) {
-  if (payload.output_text) return payload.output_text
-  return payload.output?.flatMap((item) => item.content ?? [])
-    ?.map((item) => item.text ?? '')
-    .join('')
-    .trim()
+function readGroqText(payload) {
+  return payload.choices?.[0]?.message?.content?.trim()
 }
 
 function readGeminiText(payload) {
@@ -23,18 +19,18 @@ function readGeminiText(payload) {
     .trim() || payload.text?.trim()
 }
 
-async function openAIProvider({ instructions, input, model = env.openaiModel }) {
-  if (!env.openaiApiKey) throw providerError('openai', 'OPENAI_API_KEY is not configured')
-  const response = await fetch('https://api.openai.com/v1/responses', {
+async function groqProvider({ instructions, input, model = env.groqModel }) {
+  if (!env.groqApiKey) throw providerError('groq', 'GROQ_API_KEY is not configured')
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${env.openaiApiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, instructions, input }),
+    headers: { Authorization: `Bearer ${env.groqApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: input }] }),
   })
   const payload = await response.json()
-  if (!response.ok) throw providerError('openai', payload.error?.message ?? `HTTP ${response.status}`)
-  const text = readOpenAIText(payload)
-  if (!text) throw providerError('openai', 'Provider returned no text')
-  return { text, provider: 'openai', model, usage: payload.usage }
+  if (!response.ok) throw providerError('groq', payload.error?.message ?? `HTTP ${response.status}`)
+  const text = readGroqText(payload)
+  if (!text) throw providerError('groq', 'Provider returned no text')
+  return { text, provider: 'groq', model, usage: payload.usage }
 }
 
 async function geminiProvider({ instructions, input, model = env.geminiModel }) {
@@ -60,9 +56,9 @@ async function recordUsage({ projectId, userId, operation, result }) {
       provider: result.provider,
       model: result.model,
       operation,
-      inputTokens: result.usage?.input_tokens ?? result.usage?.prompt_token_count ?? 0,
-      outputTokens: result.usage?.output_tokens ?? result.usage?.candidates_token_count ?? 0,
-      metadata: { router: 'openai-primary-gemini-fallback' },
+      inputTokens: result.usage?.prompt_tokens ?? result.usage?.input_tokens ?? result.usage?.prompt_token_count ?? 0,
+      outputTokens: result.usage?.completion_tokens ?? result.usage?.output_tokens ?? result.usage?.candidates_token_count ?? 0,
+      metadata: { router: 'groq-primary-gemini-fallback' },
     })
   } catch (error) {
     console.error('AI usage recording failed:', error.message)
@@ -73,7 +69,7 @@ export const AIService = {
   async generate({ instructions, input, projectId, userId, operation = 'generate' }) {
     let primaryError
     try {
-      const result = await openAIProvider({ instructions, input })
+      const result = await groqProvider({ instructions, input })
       await recordUsage({ projectId, userId, operation, result })
       return result
     } catch (error) {
@@ -93,4 +89,4 @@ export const AIService = {
   },
 }
 
-export { geminiProvider, openAIProvider }
+export { geminiProvider, groqProvider }

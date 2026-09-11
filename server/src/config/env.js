@@ -14,8 +14,8 @@ const env = {
   mongoUri: process.env.MONGODB_URI ?? '',
   redisUrl: process.env.REDIS_URL ?? '',
   storageDirectory: process.env.STORAGE_DIRECTORY ?? resolve(currentDirectory, '../../../storage'),
-  openaiApiKey: process.env.OPENAI_API_KEY ?? '',
-  openaiModel: process.env.OPENAI_MODEL ?? 'gpt-5-mini',
+  groqApiKey: process.env.GROQ_API_KEY ?? '',
+  groqModel: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
   geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
 }

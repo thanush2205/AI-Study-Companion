@@ -39,7 +39,7 @@ npm run worker
 
 Uploads return immediately with a `QUEUED` material and processing job. The worker extracts PDF text, creates overlapping searchable chunks, and records progress, attempts, timestamps, and failure details in MongoDB.
 
-AI provider configuration is optional. When configured, OpenAI is the primary provider and Gemini is the fallback; the application calls one provider-agnostic `AIService.generate()` contract.
+AI provider configuration is optional. When configured, Groq is the primary provider and Gemini is the fallback; the application calls one provider-agnostic `AIService.generate()` contract.
 
 The client runs at `http://localhost:5173`. The API health check is `http://localhost:4000/api/health`; readiness is `http://localhost:4000/api/ready`.
 

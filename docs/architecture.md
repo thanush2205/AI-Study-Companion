@@ -19,7 +19,7 @@ The upload request stores the PDF in prototype local storage, creates a `Process
 
 ## Provider-agnostic AI layer
 
-Tutor generation calls `AIService.generate()` only. The provider router tries OpenAI Responses API first and Gemini Interactions API second. Successful calls are normalized to `{ text, provider, model, usage }` and recorded in `AIUsage`; when credentials are absent or both providers fail, the grounded extractive response remains available. Tutor and domain code never imports an individual provider.
+Tutor generation calls `AIService.generate()` only. The provider router tries Groq Chat Completions first and Gemini Interactions API second. Successful calls are normalized to `{ text, provider, model, usage }` and recorded in `AIUsage`; when credentials are absent or both providers fail, the grounded extractive response remains available. Tutor and domain code never imports an individual provider.
 
 ## Project isolation
 
