@@ -1,5 +1,6 @@
 import { Chunk, Conversation, Material, Message } from '../models/index.js'
 import { cosineSimilarity, generateEmbedding } from './embedding.service.js'
+import { AIService } from './ai-provider-router.js'
 
 const retrievalLimit = 5
 const evidenceThreshold = 0.18
@@ -35,12 +36,28 @@ function groundedAnswer(evidence) {
     score: Number(chunk.score.toFixed(4)),
   }))
   const answer = evidence.map((chunk, index) => `[${index + 1}] ${chunk.text ?? chunk.content}`).join('\n\n')
-  return { answer, refused: false, citations }
+  return { answer, refused: false, citations, provider: 'extractive-fallback' }
 }
 
 export async function answerQuestion({ projectId, userId, question, conversationId }) {
   const { evidence } = await retrieveEvidence({ projectId, question })
-  const result = evidence.length ? groundedAnswer(evidence) : refusal(question)
+  let result = evidence.length ? groundedAnswer(evidence) : refusal(question)
+
+  if (evidence.length) {
+    const context = evidence.map((chunk, index) => `[${index + 1}] ${chunk.text ?? chunk.content}`).join('\n\n')
+    try {
+      const generated = await AIService.generate({
+        projectId,
+        userId,
+        operation: 'tutor-answer',
+        instructions: 'Answer only from the supplied study excerpts. Be concise. If the excerpts do not support the answer, say that the material is insufficient. Preserve citation markers like [1].',
+        input: `Question: ${question}\n\nStudy excerpts:\n${context}`,
+      })
+      result = { ...result, answer: generated.text, provider: generated.provider, model: generated.model }
+    } catch {
+      // The extractive answer remains grounded when no provider is configured or both fail.
+    }
+  }
   const conversation = conversationId
     ? await Conversation.findOne({ _id: conversationId, projectId, userId })
     : await Conversation.create({ projectId, userId, title: question.slice(0, 80) })
@@ -53,7 +70,7 @@ export async function answerQuestion({ projectId, userId, question, conversation
     role: 'assistant',
     content: result.answer,
     citations: result.citations.map((citation) => ({ chunkId: citation.chunkId, quote: citation.quote, pageNumber: citation.pageNumber })),
-    metadata: { grounded: !result.refused, evidenceCount: evidence.length, evidenceThreshold },
+    metadata: { grounded: !result.refused, evidenceCount: evidence.length, evidenceThreshold, provider: result.provider, model: result.model },
   })
 
   return { conversationId: conversation._id, messageId: assistantMessage._id, ...result, evidenceCount: evidence.length }

@@ -17,6 +17,10 @@ AI Study Companion is a modular monolith: one React client, one Express API, one
 
 The upload request stores the PDF in prototype local storage, creates a `ProcessingJob`, enqueues a BullMQ job, and returns `202` immediately. A separate worker executes `processMaterial(materialId, jobId)`, updates progress, extracts text, chunks content, persists searchable `Chunk` records, and marks both job and material `READY`. BullMQ retries failed jobs up to three times with exponential backoff; terminal failures are recorded as `FAILED` with an error message.
 
+## Provider-agnostic AI layer
+
+Tutor generation calls `AIService.generate()` only. The provider router tries OpenAI Responses API first and Gemini Interactions API second. Successful calls are normalized to `{ text, provider, model, usage }` and recorded in `AIUsage`; when credentials are absent or both providers fail, the grounded extractive response remains available. Tutor and domain code never imports an individual provider.
+
 ## Project isolation
 
 Every project-dependent document carries a required, indexed `projectId`. Requests to project-scoped routes must provide the authenticated user's ID and pass the ownership chain in `requireProjectScope`: `User -> Space(userId) -> Project(userId, spaceId)`. Controllers then query using the verified `request.scope.projectId`, never an untrusted route value alone.
