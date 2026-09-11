@@ -16,7 +16,8 @@ function readOpenAIText(payload) {
 }
 
 function readGeminiText(payload) {
-  return payload.output?.flatMap((item) => item.content ?? [])
+  const steps = payload.steps ?? payload.output ?? []
+  return steps.flatMap((item) => item.content ?? [])
     ?.map((item) => item.text ?? item?.text?.value ?? '')
     .join('')
     .trim() || payload.text?.trim()
