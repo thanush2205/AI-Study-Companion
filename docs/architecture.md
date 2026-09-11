@@ -11,6 +11,11 @@ AI Study Companion is a modular monolith: one React client, one Express API, one
 - `server/src/workers`: asynchronous material processing and AI jobs.
 - MongoDB: users, spaces, projects, materials, chunks, conversations, assessments, mastery, activity, and usage.
 - Redis: queues, job state, and short-lived cache.
+- `ProcessingJob`: durable status, progress, attempts, error, and lifecycle timestamps for background work.
+
+## Background material processing
+
+The upload request stores the PDF in prototype local storage, creates a `ProcessingJob`, enqueues a BullMQ job, and returns `202` immediately. A separate worker executes `processMaterial(materialId, jobId)`, updates progress, extracts text, chunks content, persists searchable `Chunk` records, and marks both job and material `READY`. BullMQ retries failed jobs up to three times with exponential backoff; terminal failures are recorded as `FAILED` with an error message.
 
 ## Project isolation
 

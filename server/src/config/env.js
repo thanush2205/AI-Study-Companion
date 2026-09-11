@@ -13,6 +13,7 @@ const env = {
   jwtSecret: process.env.JWT_SECRET ?? 'local-development-only-change-me',
   mongoUri: process.env.MONGODB_URI ?? '',
   redisUrl: process.env.REDIS_URL ?? '',
+  storageDirectory: process.env.STORAGE_DIRECTORY ?? resolve(currentDirectory, '../../../storage'),
 }
 
 export default env

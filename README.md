@@ -30,6 +30,15 @@ cd client
 npm run dev
 ```
 
+Run the PDF worker in a third terminal:
+
+```powershell
+cd server
+npm run worker
+```
+
+Uploads return immediately with a `QUEUED` material and processing job. The worker extracts PDF text, creates overlapping searchable chunks, and records progress, attempts, timestamps, and failure details in MongoDB.
+
 The client runs at `http://localhost:5173`. The API health check is `http://localhost:4000/api/health`; readiness is `http://localhost:4000/api/ready`.
 
 Authentication is available at `/api/auth/register`, `/api/auth/login`, and `/api/auth/me`. Send the returned token as `Authorization: Bearer <token>` for protected routes.

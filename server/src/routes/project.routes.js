@@ -1,9 +1,10 @@
 import express from 'express'
 import multer from 'multer'
-import { Activity, Conversation, Material, Project, Quiz } from '../models/index.js'
+import { Activity, Conversation, Material, ProcessingJob, Project, Quiz } from '../models/index.js'
 import { authenticate } from '../middleware/auth.js'
 import { requireProjectAccess } from '../middleware/project-access.js'
-import { processMaterial } from '../services/material-processor.js'
+import { enqueueMaterialJob } from '../services/material-queue.js'
+import { saveMaterialFile } from '../services/material-storage.js'
 
 const router = express.Router()
 const projectAccess = [authenticate, requireProjectAccess]
@@ -67,12 +68,25 @@ router.post('/:projectId/materials', projectAccess, upload.single('file'), async
       uploadedBy: request.user._id,
       title: request.body.title?.trim() || request.file.originalname.replace(/\.pdf$/i, ''),
       type: 'pdf',
-      processingStatus: 'QUEUED',
+      processingStatus: 'UPLOADED',
       metadata: { originalName: request.file.originalname, mimeType: request.file.mimetype, size: request.file.size },
     })
 
-    setImmediate(() => processMaterial(material._id, request.file.buffer))
-    return response.status(202).json({ material })
+    const storageKey = await saveMaterialFile(material._id, request.file.buffer)
+    const job = await ProcessingJob.create({ projectId: material.projectId, materialId: material._id })
+    await Material.findByIdAndUpdate(material._id, { storageKey, processingStatus: 'QUEUED' })
+    try {
+      await enqueueMaterialJob({ jobId: job._id, materialId: material._id })
+    } catch (error) {
+      await Promise.all([
+        Material.findByIdAndUpdate(material._id, { processingStatus: 'FAILED', processingError: error.message }),
+        ProcessingJob.findByIdAndUpdate(job._id, { status: 'FAILED', error: error.message, completedAt: new Date() }),
+      ])
+      return response.status(503).json({ error: 'Material processing queue is unavailable' })
+    }
+
+    const queuedMaterial = await Material.findById(material._id).lean()
+    return response.status(202).json({ material: queuedMaterial, job })
   } catch (error) {
     return next(error)
   }
