@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AnalyticsDashboard from './components/AnalyticsDashboard'
+import AdminDashboard from './components/AdminDashboard'
 import './App.css'
 
 const checks = [
@@ -32,6 +33,7 @@ function App() {
           <p className="section-label">Your learning system</p>
           <button className={activeView === 'dashboard' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveView('dashboard')}>⌂ <span>Dashboard</span></button>
           <button className={activeView === 'spaces' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveView('spaces')}>▦ <span>Spaces</span></button>
+          <button className={activeView === 'admin' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveView('admin')}>⊕ <span>Admin</span></button>
           <div className="sidebar-rule" />
           <p className="sidebar-note">Keep your subjects separate. Each space holds the projects, materials, and progress that belong together.</p>
         </aside>
@@ -39,6 +41,7 @@ function App() {
           <div className="breadcrumbs"><button onClick={() => { setActiveView('dashboard'); setSelectedSpace(null); setSelectedProject(null) }}>Dashboard</button><span>/</span><button onClick={() => { setActiveView('spaces'); setSelectedProject(null) }}>Spaces</button>{selectedSpace && <><span>/</span><button onClick={() => setActiveView('space-detail')}>{selectedSpace.name}</button></>}{selectedProject && <><span>/</span><strong>{selectedProject.title}</strong></>}</div>
           {activeView === 'dashboard' && <Dashboard onSpaces={() => setActiveView('spaces')} />}
           {activeView === 'spaces' && <Spaces onSelect={(space) => { setSelectedSpace(space); setActiveView('space-detail') }} />}
+          {activeView === 'admin' && <AdminDashboard />}
           {activeView === 'space-detail' && selectedSpace && <SpaceDetail space={selectedSpace} onSelectProject={(project) => { setSelectedProject(project); setActiveView('project') }} />}
           {activeView === 'project' && selectedProject && <ProjectWorkspace project={selectedProject} />}
         </section>
