@@ -12,6 +12,7 @@ import materialRouter from './routes/material.routes.js'
 import spaceRouter from './routes/space.routes.js'
 import conversationRouter from './routes/conversation.routes.js'
 import quizRouter from './routes/quiz.routes.js'
+import assessmentRouter from './routes/assessment.routes.js'
 import { errorHandler } from './middleware/error-handler.js'
 
 const app = express()
@@ -29,6 +30,7 @@ app.use('/api/materials', materialRouter)
 app.use('/api/spaces', spaceRouter)
 app.use('/api', conversationRouter)
 app.use('/api', quizRouter)
+app.use('/api', assessmentRouter)
 
 app.get('/', (_request, response) => {
   response.json({
