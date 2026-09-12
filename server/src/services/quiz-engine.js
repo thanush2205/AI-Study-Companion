@@ -1,5 +1,6 @@
 import { Concept, Mastery, Quiz, QuizAttempt } from '../models/index.js'
 import { AIService } from './ai-provider-router.js'
+import { updateMastery } from './mastery-engine.js'
 
 const difficultyForScore = (score) => score < 0.4 ? 'easy' : score <= 0.7 ? 'medium' : 'hard'
 const levelForScore = (score) => score < 0.4 ? 'novice' : score < 0.6 ? 'developing' : score < 0.8 ? 'proficient' : 'mastered'
@@ -104,15 +105,8 @@ export async function evaluateQuiz({ quiz, projectId, userId, answers }) {
     conceptResults.set(answer.conceptId.toString(), current)
   }
   for (const [conceptId, results] of conceptResults) {
-    const existing = await Mastery.findOne({ projectId, userId, conceptId }).lean()
-    const baseline = existing?.score ?? 0
-    const delta = results.every(Boolean) ? 0.1 : results.some(Boolean) ? 0.03 : -0.08
-    const nextScore = Math.max(0, Math.min(1, baseline + delta))
-    await Mastery.findOneAndUpdate(
-      { projectId, userId, conceptId },
-      { $set: { score: nextScore, level: levelForScore(nextScore), updatedBy: 'assessment', evidence: [`Quiz ${quiz._id} score: ${score}`] } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    )
+    const performance = results.filter(Boolean).length / results.length
+    await updateMastery({ projectId, userId, conceptId, performance, source: 'quiz', referenceId: attempt._id, evidence: [`Quiz ${quiz._id} score: ${score}`] })
   }
 
   return {
