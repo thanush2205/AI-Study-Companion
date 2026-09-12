@@ -7,6 +7,7 @@ import { enqueueMaterialJob } from '../services/material-queue.js'
 import { saveMaterialFile } from '../services/material-storage.js'
 import { answerQuestion } from '../services/knowledge-engine.js'
 import { generateAdaptiveQuiz, publicQuiz } from '../services/quiz-engine.js'
+import { analyzeStruggle } from '../services/struggle.service.js'
 import { getProjectAnalytics } from '../services/analytics.service.js'
 import { EVENTS, recordEvent } from '../services/event.service.js'
 
@@ -148,6 +149,19 @@ router.get('/:projectId/analytics', projectAccess, async (request, response, nex
   try {
     const analytics = await getProjectAnalytics({ projectId: request.scope.projectId, userId: request.user._id })
     return response.json({ projectId: request.scope.projectId, analytics, activity: analytics.activity.recent })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:projectId/mastery/:conceptId/struggle', projectAccess, async (request, response, next) => {
+  try {
+    const insight = await analyzeStruggle({
+      projectId: request.scope.projectId,
+      userId: request.user._id,
+      conceptId: request.params.conceptId,
+    })
+    return response.json({ projectId: request.scope.projectId, ...insight })
   } catch (error) {
     return next(error)
   }

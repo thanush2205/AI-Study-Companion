@@ -14,6 +14,10 @@ const navSections = [
   { key: 'analytics', label: 'Analytics', icon: '▤' },
 ]
 
+export function isLiveProject(projectId, token) {
+  return Boolean(token) && /^[0-9a-f]{24}$/i.test(String(projectId ?? ''))
+}
+
 const statusTone = {
   READY: 'ok',
   QUEUED: 'wait',
@@ -61,9 +65,14 @@ const sampleQuiz = {
 export default function ProjectWorkspace({ project, token }) {
   const [active, setActive] = useState('tutor')
   const [materials, setMaterials] = useState(null)
-  const [concepts, setConcepts] = useState([])
   const [analytics, setAnalytics] = useState(null)
+  const [tutorSuggestion, setTutorSuggestion] = useState(null)
   const projectId = project.id ?? project._id
+
+  const handleNavigate = (key, options = {}) => {
+    if (options.prompt) setTutorSuggestion({ nonce: Date.now(), prompt: options.prompt })
+    setActive(key)
+  }
 
   useEffect(() => {
     let alive = true
@@ -86,8 +95,7 @@ export default function ProjectWorkspace({ project, token }) {
           { week: 'Week 4', masteryPercent: 71 },
         ],
       }
-      setConcepts(Object.freeze(sampleConcepts))
-      if (!projectId || !token) {
+      if (!isLiveProject(projectId, token)) {
         setMaterials(sampleMaterials)
         setAnalytics(fallbackAnalytics)
         return
@@ -135,10 +143,10 @@ export default function ProjectWorkspace({ project, token }) {
       <section className="project-stage">
         {active === 'overview' && <OverviewPane mastery={mastery} materials={materials} analytics={analytics} onOpen={(key) => setActive(key)} />}
         {active === 'materials' && <MaterialsPane materials={materials} token={token} projectId={projectId} />}
-        {active === 'tutor' && <TutorPane {...view} />}
+        {active === 'tutor' && <TutorPane {...view} suggestion={tutorSuggestion} />}
         {active === 'quiz' && <QuizPane {...view} />}
         {active === 'assessment' && <AssessmentPane {...view} />}
-        {active === 'mastery' && <MasteryPane concepts={concepts} mastery={mastery} />}
+        {active === 'mastery' && <MasteryPane analytics={analytics} projectId={projectId} token={token} onNavigate={handleNavigate} />}
         {active === 'growth' && <GrowthPane {...view} />}
         {active === 'analytics' && <AnalyticsDashboard analytics={analytics} />}
       </section>
@@ -177,7 +185,7 @@ function MaterialsPane({ materials, token, projectId }) {
   const inputRef = useRef(null)
 
   async function uploadFile(file) {
-    if (!file || !projectId || !token) { setStatus('sample'); return }
+    if (!file || !isLiveProject(projectId, token)) { setStatus('sample'); return }
     const form = new FormData()
     form.append('file', file)
     const headers = { Authorization: `Bearer ${token}` }
@@ -224,7 +232,7 @@ const sampleThread = [
   { role: 'ai', text: 'Polymorphism means “many forms” — one interface, several implementations. In Java it usually shows up as method overriding (runtime) or overloading (compile time).', citations: [{ title: 'OOP.pdf', page: 23 }] },
 ]
 
-function TutorPane({ project, token }) {
+function TutorPane({ project, token, suggestion }) {
   const projectId = project.id ?? project._id
   const [thread, setThread] = useState(sampleThread)
   const [draft, setDraft] = useState('')
@@ -234,6 +242,10 @@ function TutorPane({ project, token }) {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [thread, busy])
 
+  useEffect(() => {
+    if (suggestion?.prompt && !busy) setDraft(suggestion.prompt)
+  }, [suggestion?.nonce])
+
   async function ask(text) {
     const question = text?.trim()
     if (!question || busy) return
@@ -241,7 +253,7 @@ function TutorPane({ project, token }) {
     setDraft('')
     setBusy(true)
     setError(null)
-    if (!projectId || !token) {
+    if (!isLiveProject(projectId, token)) {
       setTimeout(() => {
         setThread((t) => [...t, { role: 'ai', text: 'Polymorphism appears wherever one reference type works with many concrete objects. Trying it with a real example is the fastest way to make it stick.', citations: [{ title: 'OOP.pdf', page: 23 }] }])
         setBusy(false)
@@ -301,7 +313,7 @@ function QuizPane({ project, token }) {
   async function newQuiz() {
     setBusy(true)
     setPicks({})
-    if (!projectId || !token) {
+    if (!isLiveProject(projectId, token)) {
       setTimeout(() => { setQuiz(sampleQuiz); setBusy(false) }, 500)
       return
     }
@@ -361,28 +373,156 @@ function AssessmentPane() {
   )
 }
 
-function MasteryPane({ concepts, mastery }) {
-  const rows = concepts.map((concept) => ({ ...concept, warm: (concept.masteryPercent ?? 0) < 60 }))
+function MasteryPane({ analytics, projectId, token, onNavigate }) {
+  const mastery = analytics?.mastery ?? {}
+  const [analysis, setAnalysis] = useState(null)
+
+  const rows = masterRows(mastery, sampleConcepts)
+
+  const requestAnalysis = async (row) => {
+    setAnalysis((prev) => ({ ...prev, [row.conceptId]: { state: 'analyzing' } }))
+    if (!isLiveProject(projectId, token)) {
+      setTimeout(() => {
+        setAnalysis((prev) => ({ ...prev, [row.conceptId]: { state: 'ready', data: mockStruggle(row) } }))
+      }, 700)
+      return
+    }
+    try {
+      const response = await fetch(`${BASE}/api/projects/${projectId}/mastery/${row.conceptId}/struggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(45000),
+      })
+      const json = await response.json()
+      if (json.insufficientData) {
+        setAnalysis((prev) => ({ ...prev, [row.conceptId]: { state: 'empty', reason: json.reason } }))
+      } else {
+        setAnalysis((prev) => ({ ...prev, [row.conceptId]: { state: 'ready', data: json.insight, source: json.source } }))
+      }
+    } catch {
+      setAnalysis((prev) => ({ ...prev, [row.conceptId]: { state: 'error' } }))
+    }
+  }
+
   return (
     <div className="stage-inner">
       <div className="stage-heading"><div><span className="section-label">Mastery</span><h1>Understanding, measured</h1><p className="lede">Mastery moves with every quiz, assessment, and conversation.</p></div></div>
       <div className="analytics-stat-grid">
         <div className="analytics-stat"><span className="section-label">Average mastery</span><strong>{mastery.averageMastery ?? 0}%</strong><p>{mastery.trackedConcepts ?? 0} concepts tracked</p></div>
         <div className="analytics-stat"><span className="section-label">Mastered</span><strong>{mastery.masteredConceptNames?.length ?? 0}</strong><p>stable and confident</p></div>
-        <div className="analytics-stat"><span className="section-label">Developing</span><strong>{mastery.conceptsNeedingAttentionNames?.length ?? 0}</strong><p>worth revisiting</p></div>
+        <div className="analytics-stat"><span className="section-label">Needs attention</span><strong>{mastery.conceptsNeedingAttentionNames?.length ?? 0}</strong><p>worth revisiting</p></div>
       </div>
       <div className="analytics-chart-panel" style={{ marginTop: 14 }}>
         <span className="section-label">Concept-by-concept</span>
-        {rows.map((concept) => (
-          <div className="analytics-progress-row" key={concept.concept}>
-            <span>{concept.concept}</span>
-            <div className={concept.warm ? 'progress-track warm' : 'progress-track'}><i style={{ width: `${concept.masteryPercent}%` }} /></div>
-            <strong>{concept.masteryPercent}%</strong>
-          </div>
-        ))}
+        {rows.map((concept) => {
+          const weak = concept.masteryPercent < 60
+          const state = analysis?.[concept.conceptId]
+          return (
+            <div className="mastery-block" key={concept.conceptId}>
+              <div className="analytics-progress-row">
+                <span>{concept.concept}</span>
+                <div className={weak ? 'progress-track warm' : 'progress-track'}><i style={{ width: `${concept.masteryPercent}%` }} /></div>
+                <strong>{concept.masteryPercent}%</strong>
+              </div>
+              {weak && (
+                <div className="mastery-actions">
+                  {!state?.state && (
+                    <button className={state?.state === 'analyzing' ? 'why-button analyzing' : 'why-button'} onClick={() => requestAnalysis(concept)} disabled={state?.state === 'analyzing'}>
+                      <span>✦</span> {state?.state === 'analyzing' ? 'Analyzing your answers…' : 'Why am I struggling?'}
+                    </button>
+                  )}
+                  {state?.state === 'ready' && <InsightCard data={state.data} concept={concept} onNavigate={onNavigate} />}
+                  {state?.state === 'error' && <p className="insight-error">Couldn't analyze — is the API running?</p>}
+                  {state?.state === 'empty' && <p className="insight-empty">{state.reason}</p>}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
+}
+
+function masterRows(mastery, fallbackConcepts) {
+  const real = [
+    ...(mastery.conceptsNeedingAttention ?? []),
+    ...(mastery.masteredConcepts ?? []),
+  ]
+  if (real.length === 0) {
+    return fallbackConcepts.map((row) => ({ conceptId: String(row._id), concept: row.concept, masteryPercent: row.masteryPercent }))
+  }
+  const byId = new Map()
+  for (const row of real) byId.set(String(row.conceptId), row)
+  return [...byId.values()].sort((a, b) => a.masteryPercent - b.masteryPercent).map((row) => ({ conceptId: String(row.conceptId), concept: row.concept, masteryPercent: row.masteryPercent }))
+}
+
+function InsightCard({ data, concept, onNavigate }) {
+  if (!data) return null
+  const runAction = (type, extra) => {
+    if (type === 'tutor' && extra?.prompt) onNavigate('tutor', { prompt: extra.prompt })
+    else if (type === 'quiz') onNavigate('quiz')
+    else if (type === 'review') onNavigate('materials')
+  }
+  return (
+    <div className="insight-card">
+      <div className="insight-head"><span className="section-label">Why you're struggling — {concept.concept}</span>{data.grounded && <span className="insight-grounded">● Grounded in your material</span>}</div>
+      <p className="insight-summary">{data.summary}</p>
+      <div className="insight-pattern"><span>Pattern</span><strong>{data.pattern}</strong></div>
+      {data.reasons?.length > 0 && (
+        <ul className="insight-reasons">{data.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul>
+      )}
+      {data.evidence?.length > 0 && (
+        <div className="insight-evidence">
+          <span className="section-label">Your last answers</span>
+          {data.evidence.map((item, i) => (
+            <div className="evidence-row" key={i}><code className={item.correct ? 'ev-ok' : 'ev-bad'}>{sourceLabel(item.source)}</code><p>{item.detail}</p></div>
+          ))}
+        </div>
+      )}
+      {data.recommendations?.length > 0 && (
+        <div className="insight-actions">
+          <span className="section-label">Recommended action</span>
+          {data.recommendations.map((item, i) => (
+            <button key={i} className="insight-action" onClick={() => runAction(item.type, item)}>
+              <span className="action-icon">{item.type === 'review' ? '📄' : item.type === 'tutor' ? '✦' : '◆'}</span>
+              <span>{item.action} <em className="action-target">{item.type}</em></span>
+              <b>→</b>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function sourceLabel(source) {
+  return { quiz: 'quiz', assessment: 'assessment', tutor: 'tutor question' }[source] ?? source
+}
+
+function mockStruggle(row) {
+  const isInterface = /interface/i.test(row.concept)
+  return {
+    summary: `You understand what ${isInterface ? 'an interface' : row.concept} is, but you're repeatedly confusing ${isInterface ? 'Interface' : row.concept} with ${isInterface ? 'Abstract Class' : 'the adjacent ideas'}.`,
+    pattern: `${isInterface ? 'Confusing interface with abstract class' : `Misapplying ${row.concept} across question shapes`}`,
+    reasons: [
+      'Your last 3 answers show the same misconception.',
+      'You can define it, but applying it to fresh examples trips you up.',
+    ],
+    evidence: [
+      { source: 'quiz', detail: 'Which keyword declares an interface? — you answered "abstract" (correct: "interface")', correct: false },
+      { source: 'quiz', detail: 'Can an interface have a constructor? — you answered "Yes" (correct: "No")', correct: false },
+      { source: 'assessment', detail: 'Explain how an interface differs from an abstract class.', correct: null },
+    ],
+    recommendations: [
+      isInterface
+        ? { type: 'review', action: 'Review Page 42 of OOP.pdf — interfaces describe capability, not state.', page: 42, material: 'OOP.pdf' }
+        : { type: 'review', action: 'Re-read the material covering this concept before retrying.', page: 42, material: 'OOP.pdf' },
+      { type: 'tutor', action: `Ask the tutor about the difference between ${row.concept} and ${isInterface ? 'Abstract Class' : 'the concepts you mix it up with'}.`, prompt: `How is ${row.concept} different from ${isInterface ? 'an abstract class' : 'similar concepts'}?` },
+      { type: 'quiz', action: 'Take a 3-question targeted quiz on this concept.', count: 3 },
+    ],
+    grounded: true,
+  }
 }
 
 function GrowthPane({ project, token }) {
@@ -397,7 +537,7 @@ function GrowthPane({ project, token }) {
         { type: 'quiz', concept: 'Abstraction', why: 'A focused quiz will sharpen the distinction from encapsulation.' },
         { type: 'deepen', concept: 'Polymorphism', why: 'Confident enough to try coding it without notes.' },
       ]
-      if (!projectId || !token) { setRecommendations(fallback); return }
+      if (!isLiveProject(projectId, token)) { setRecommendations(fallback); return }
       try {
         const result = await get(`/api/projects/${projectId}/recommendations`, token).catch(() => null)
         if (!alive) return

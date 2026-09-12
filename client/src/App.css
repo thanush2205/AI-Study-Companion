@@ -244,3 +244,39 @@ footer { display: flex; justify-content: space-between; margin-top: auto; paddin
   .chat-window { max-height: 48vh; }
   .chat-bubble { max-width: 100%; }
 }
+
+/* Section 22 — Why am I struggling? */
+
+.mastery-block { border-bottom: 1px solid var(--line); }
+.mastery-block:last-child { border-bottom: 0; }
+.mastery-actions { display: flex; flex-direction: column; gap: 12px; padding: 0 0 18px; }
+.why-button { display: inline-flex; align-items: center; gap: 9px; align-self: flex-start; padding: 9px 14px; border: 1px solid var(--line); color: var(--coral); background: rgba(227,103,80,.06); font: 600 .76rem var(--sans); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.why-button span { font-size: .82rem; }
+.why-button:hover, .why-button.analyzing { border-color: var(--coral); background: rgba(227,103,80,.12); }
+.why-button:disabled { opacity: .75; cursor: wait; }
+.insight-error, .insight-empty { margin: 0; color: var(--muted); font-size: .8rem; }
+
+.insight-card { padding: 24px; border: 1px solid var(--coral); background: rgba(255,255,255,.7); animation: reveal .4s ease both; }
+.insight-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.insight-head .section-label { color: var(--coral); }
+.insight-grounded { color: var(--mint); font: 600 .62rem var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.insight-summary { margin: 14px 0 0; color: var(--ink); font-size: 1rem; line-height: 1.6; }
+.insight-pattern { display: flex; align-items: baseline; gap: 10px; margin-top: 14px; padding: 12px 14px; background: rgba(65,163,124,.08); }
+.insight-pattern span { color: var(--muted); font: 600 .64rem var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+.insight-pattern strong { color: var(--ink); font-weight: 600; font-size: .86rem; }
+.insight-reasons { margin: 14px 0 0; padding: 0 0 0 18px; color: var(--muted); font-size: .82rem; line-height: 1.7; }
+.insight-evidence, .insight-actions { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; }
+.insight-evidence .section-label, .insight-actions .section-label { color: var(--muted); }
+.evidence-row { display: flex; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.evidence-row:last-child { border-bottom: 0; }
+.evidence-row code { flex: 0 0 auto; padding: 3px 7px; font: 600 .6rem var(--mono); text-transform: uppercase; }
+.evidence-row code.ev-bad { color: var(--coral); background: rgba(227,103,80,.1); }
+.evidence-row code.ev-ok { color: var(--mint); background: rgba(65,163,124,.1); }
+.evidence-row code:empty { display: none; }
+.evidence-row p { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.insight-action { display: flex; align-items: center; gap: 13px; width: 100%; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: 600 .82rem var(--sans); text-align: left; cursor: pointer; transition: color .15s ease; }
+.insight-action:last-child { border-bottom: 0; }
+.insight-action:hover { color: var(--coral); }
+.action-icon { flex: 0 0 auto; font-size: .95rem; }
+.action-target { color: var(--muted); font: 600 .62rem var(--mono); text-transform: uppercase; letter-spacing: .05em; font-style: normal; padding-left: 8px; }
+.insight-action b { margin-left: auto; color: var(--coral); font-weight: 400; }
