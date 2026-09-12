@@ -7,7 +7,8 @@
     "dev": "node --watch src/app.js",
     "start": "node src/app.js",
     "worker": "node src/workers/material.worker.js",
-    "lint": "node --check src/app.js"
+    "lint": "node --check src/app.js",
+    "test": "node --test --test-timeout=120000 \"tests/*.test.mjs\""
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

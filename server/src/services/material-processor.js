@@ -28,7 +28,7 @@ export async function processMaterial(materialId, jobId) {
   const job = await ProcessingJob.findByIdAndUpdate(jobId, {
     status: 'PROCESSING', progress: 10, startedAt: new Date(), $inc: { attempts: 1 }, error: null,
   }, { new: true })
-  const material = await Material.findByIdAndUpdate(materialId, { processingStatus: 'PROCESSING', processingError: null }, { new: true }).select('projectId storageKey')
+  const material = await Material.findByIdAndUpdate(materialId, { processingStatus: 'PROCESSING', processingError: null }, { new: true }).select('projectId storageKey uploadedBy')
 
   try {
     await ProcessingJob.findByIdAndUpdate(job._id, { progress: 25 })
