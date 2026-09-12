@@ -30,6 +30,18 @@ app.use('/api/spaces', spaceRouter)
 app.use('/api', conversationRouter)
 app.use('/api', quizRouter)
 
+app.get('/', (_request, response) => {
+  response.json({
+    service: 'study-companion-api',
+    status: 'ok',
+    endpoints: {
+      health: '/api/health',
+      readiness: '/api/ready',
+      client: env.clientOrigin,
+    },
+  })
+})
+
 app.get('/api/health', (_request, response) => {
   response.json({ status: 'ok', service: 'study-companion-api', timestamp: new Date().toISOString() })
 })
