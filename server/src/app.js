@@ -15,6 +15,7 @@ import quizRouter from './routes/quiz.routes.js'
 import assessmentRouter from './routes/assessment.routes.js'
 import masteryRouter from './routes/mastery.routes.js'
 import growthRouter from './routes/growth.routes.js'
+import recommendationRouter from './routes/recommendation.routes.js'
 import { errorHandler } from './middleware/error-handler.js'
 
 const app = express()
@@ -35,6 +36,7 @@ app.use('/api', quizRouter)
 app.use('/api', assessmentRouter)
 app.use('/api', masteryRouter)
 app.use('/api', growthRouter)
+app.use('/api', recommendationRouter)
 
 app.get('/', (_request, response) => {
   response.json({

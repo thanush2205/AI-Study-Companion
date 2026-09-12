@@ -4,7 +4,7 @@ import { projectFields, registerModel, timestamps } from './_shared.js'
 const recommendationSchema = new mongoose.Schema({
   ...projectFields,
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  type: { type: String, enum: ['review', 'quiz', 'material', 'study-plan'], required: true },
+  type: { type: String, enum: ['review', 'quiz', 'material', 'study-plan', 'tutor'], required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
   status: { type: String, enum: ['new', 'accepted', 'dismissed', 'completed'], default: 'new' },
