@@ -2,6 +2,7 @@ import express from 'express'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { getGlobalAnalytics } from '../services/analytics.service.js'
 import { getAIUsageSummary, getSystemHealth, getUserDetail, listUsers } from '../services/admin.service.js'
+import { listEvaluationRuns, runEvaluation } from '../services/evaluation.service.js'
 
 const router = express.Router()
 const adminOnly = [authenticate, requireAdmin]
@@ -59,6 +60,24 @@ router.get('/users/:userId', adminOnly, async (request, response, next) => {
   try {
     const detail = await getUserDetail(request.params.userId)
     return response.json(detail)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/evaluation', adminOnly, async (request, response, next) => {
+  try {
+    const result = await listEvaluationRuns({ limit: request.query.limit })
+    return response.json(result)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/evaluation/run', adminOnly, async (request, response, next) => {
+  try {
+    const result = await runEvaluation(request.user._id)
+    return response.json(result)
   } catch (error) {
     return next(error)
   }

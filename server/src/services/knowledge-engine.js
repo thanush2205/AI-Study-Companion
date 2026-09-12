@@ -1,5 +1,5 @@
 import { Chunk, Conversation, Material, Message } from '../models/index.js'
-import { cosineSimilarity, generateEmbedding } from './embedding.service.js'
+import { cosineSimilarity, generateEmbedding, generateQueryEmbedding } from './embedding.service.js'
 import { AIService } from './ai-provider-router.js'
 import { buildTutorContext } from './learning-context.service.js'
 import { EVENTS, recordEvent } from './event.service.js'
@@ -8,7 +8,7 @@ const retrievalLimit = 5
 const evidenceThreshold = 0.18
 
 export async function retrieveEvidence({ projectId, question }) {
-  const queryEmbedding = generateEmbedding(question)
+  const queryEmbedding = generateQueryEmbedding(question)
   const chunks = await Chunk.find({ projectId }).select('+embedding text content pageNumber chunkIndex materialId').lean()
   const scored = chunks
     .map((chunk) => ({ ...chunk, score: cosineSimilarity(queryEmbedding, chunk.embedding) }))
