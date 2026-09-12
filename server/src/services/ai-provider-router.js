@@ -1,22 +1,57 @@
 import env from '../config/env.js'
 import { AIUsage } from '../models/index.js'
 
-function providerError(provider, message) {
+const providerError = (provider, message) => {
   const error = new Error(`${provider}: ${message}`)
   error.provider = provider
   return error
 }
 
-function readGroqText(payload) {
-  return payload.choices?.[0]?.message?.content?.trim()
-}
-
-function readGeminiText(payload) {
+const readGroqText = (payload) => payload.choices?.[0]?.message?.content?.trim()
+const readGeminiText = (payload) => {
   const steps = payload.steps ?? payload.output ?? []
   return steps.flatMap((item) => item.content ?? [])
     ?.map((item) => item.text ?? item?.text?.value ?? '')
     .join('')
     .trim() || payload.text?.trim()
+}
+
+const tokenCount = (usage) => ({
+  input: usage?.prompt_tokens ?? usage?.input_tokens ?? usage?.prompt_token_count ?? 0,
+  output: usage?.completion_tokens ?? usage?.output_tokens ?? usage?.candidates_token_count ?? 0,
+})
+
+const pricing = {
+  'openai/gpt-oss-120b': { input: 0.15, output: 0.60 },
+  'gemini-3.6-flash': { input: 0.075, output: 0.30 },
+}
+
+function estimateCost(model, inputTokens, outputTokens) {
+  const { input, output } = pricing[model] ?? pricing['openai/gpt-oss-120b']
+  return (inputTokens * input + outputTokens * output) / 1_000_000
+}
+
+async function persistUsage(record) {
+  try {
+    await AIUsage.create(record)
+  } catch (error) {
+    console.error('AI usage recording failed:', error.message)
+  }
+}
+
+async function executeProvider({ projectId, userId, operation, provider, model, call }) {
+  const started = performance.now()
+  try {
+    const result = await call()
+    const latencyMs = Math.round(performance.now() - started)
+    const { input: inputTokens, output: outputTokens } = tokenCount(result.usage)
+    await persistUsage({ projectId, userId, operation, provider, model, inputTokens, outputTokens, cost: Number(estimateCost(model, inputTokens, outputTokens).toFixed(8)), latencyMs, success: true })
+    return { ...result, latencyMs }
+  } catch (error) {
+    const latencyMs = Math.round(performance.now() - started)
+    await persistUsage({ projectId, userId, operation, provider, model, latencyMs, success: false, error: String(error.message ?? error).slice(0, 500) })
+    throw error
+  }
 }
 
 async function groqProvider({ instructions, input, model = env.groqModel }) {
@@ -47,39 +82,15 @@ async function geminiProvider({ instructions, input, model = env.geminiModel }) 
   return { text, provider: 'gemini', model, usage: payload.usage }
 }
 
-async function recordUsage({ projectId, userId, operation, result }) {
-  if (!projectId || !result) return
-  try {
-    await AIUsage.create({
-      projectId,
-      userId,
-      provider: result.provider,
-      model: result.model,
-      operation,
-      inputTokens: result.usage?.prompt_tokens ?? result.usage?.input_tokens ?? result.usage?.prompt_token_count ?? 0,
-      outputTokens: result.usage?.completion_tokens ?? result.usage?.output_tokens ?? result.usage?.candidates_token_count ?? 0,
-      metadata: { router: 'groq-primary-gemini-fallback' },
-    })
-  } catch (error) {
-    console.error('AI usage recording failed:', error.message)
-  }
-}
-
 export const AIService = {
   async generate({ instructions, input, projectId, userId, operation = 'generate' }) {
     let primaryError
     try {
-      const result = await groqProvider({ instructions, input })
-      await recordUsage({ projectId, userId, operation, result })
-      return result
-    } catch (error) {
-      primaryError = error
-    }
+      return await executeProvider({ projectId, userId, operation, provider: 'groq', model: env.groqModel, call: () => groqProvider({ instructions, input }) })
+    } catch (error) { primaryError = error }
 
     try {
-      const result = await geminiProvider({ instructions, input })
-      await recordUsage({ projectId, userId, operation, result })
-      return result
+      return await executeProvider({ projectId, userId, operation, provider: 'gemini', model: env.geminiModel, call: () => geminiProvider({ instructions, input }) })
     } catch (fallbackError) {
       const error = new Error('All configured AI providers failed')
       error.primaryError = primaryError
@@ -89,4 +100,4 @@ export const AIService = {
   },
 }
 
-export { geminiProvider, groqProvider }
+export { geminiProvider, groqProvider, estimateCost }

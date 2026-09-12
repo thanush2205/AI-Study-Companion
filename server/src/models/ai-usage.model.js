@@ -10,6 +10,9 @@ const aiUsageSchema = new mongoose.Schema({
   inputTokens: { type: Number, default: 0 },
   outputTokens: { type: Number, default: 0 },
   cost: { type: Number, default: 0 },
+  latencyMs: { type: Number, default: 0 },
+  success: { type: Boolean, default: true },
+  error: { type: String, default: null },
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, timestamps)
 

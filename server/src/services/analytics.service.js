@@ -50,7 +50,18 @@ async function aiUsageStats(match) {
   const [totals, byOperation, byProvider] = await Promise.all([
     AIUsage.aggregate([
       { $match: match },
-      { $group: { _id: null, calls: { $sum: 1 }, inputTokens: { $sum: '$inputTokens' }, outputTokens: { $sum: '$outputTokens' }, cost: { $sum: '$cost' } } },
+      {
+        $group: {
+          _id: null,
+          calls: { $sum: 1 },
+          successful: { $sum: { $cond: [{ $ne: [{ $ifNull: ['$success', true] }, false] }, 1, 0] } },
+          failed: { $sum: { $cond: [{ $eq: [{ $ifNull: ['$success', true] }, false] }, 1, 0] } },
+          inputTokens: { $sum: '$inputTokens' },
+          outputTokens: { $sum: '$outputTokens' },
+          latencyMs: { $sum: '$latencyMs' },
+          cost: { $sum: '$cost' },
+        },
+      },
     ]),
     AIUsage.aggregate([
       { $match: match },
@@ -63,8 +74,12 @@ async function aiUsageStats(match) {
       { $sort: { calls: -1 } },
     ]),
   ])
+  const calls = totals[0]?.calls ?? 0
   return {
-    calls: totals[0]?.calls ?? 0,
+    calls,
+    successful: totals[0]?.successful ?? 0,
+    failed: totals[0]?.failed ?? 0,
+    averageLatencySec: calls ? Number(((totals[0]?.latencyMs ?? 0) / calls / 1000).toFixed(2)) : 0,
     inputTokens: totals[0]?.inputTokens ?? 0,
     outputTokens: totals[0]?.outputTokens ?? 0,
     totalTokens: (totals[0]?.inputTokens ?? 0) + (totals[0]?.outputTokens ?? 0),
