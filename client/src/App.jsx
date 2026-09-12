@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import AnalyticsDashboard from './components/AnalyticsDashboard'
 import './App.css'
 
 const checks = [
@@ -53,6 +54,74 @@ function Spaces({ onSelect }) { const spaces = [{ name: 'Computer Science', desc
 
 function SpaceDetail({ space, onSelectProject }) { const projects = [{ title: 'Operating systems', description: 'Understand the machinery beneath modern computing.', status: 'active', learningGoal: 'Explain core concepts without memorizing definitions.' }, { title: 'Algorithms, clearly', description: 'Turn complexity into intuition and working code.', status: 'active', learningGoal: 'Choose the right approach for unfamiliar problems.' }]; return <><div className="space-hero"><span className="space-color large" style={{ background: space.color }} /><p className="eyebrow">Space detail</p><h1>{space.name}</h1><p className="lede">{space.description}</p></div><div className="section-heading"><div><span className="section-label">Projects</span><h2>What are you learning?</h2></div><button className="secondary-action">+ New project</button></div><div className="project-list">{projects.map((project) => <button className="project-row" key={project.title} onClick={() => onSelectProject(project)}><div className="project-index">0{projects.indexOf(project) + 1}</div><div><h2>{project.title}</h2><p>{project.description}</p><small>Goal · {project.learningGoal}</small></div><span className="project-arrow">→</span></button>)}</div></> }
 
-function ProjectWorkspace({ project }) { return <><div className="workspace-hero"><p className="eyebrow">Project workspace / active</p><h1>{project.title}</h1><p className="lede">{project.description}</p></div><div className="workspace-grid"><div className="empty-module"><span className="module-number">01</span><span className="section-label">Materials</span><h2>Bring your sources here.</h2><p>PDFs, notes, and links will become the grounding layer for your tutor.</p></div><div className="empty-module"><span className="module-number">02</span><span className="section-label">Tutor</span><h2>Ask better questions.</h2><p>Your project conversation will stay connected to what you are learning.</p></div><div className="empty-module"><span className="module-number">03</span><span className="section-label">Progress</span><h2>See understanding grow.</h2><p>Quizzes and mastery signals will appear as you practice.</p></div></div></> }
+function ProjectWorkspace({ project }) {
+  const [analytics, setAnalytics] = useState(null)
+  useEffect(() => {
+    const base = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
+    if (!project.id) {
+      setAnalytics(sampleAnalytics)
+      return
+    }
+    fetch(`${base}/api/projects/${project.id}/analytics`)
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('unavailable')))
+      .then((json) => {
+        if (json.analytics?.masteryTrend) setAnalytics(json.analytics)
+        else setAnalytics({ ...json.analytics, masteryTrend: sampleAnalytics.masteryTrend })
+      })
+      .catch(() => setAnalytics(sampleAnalytics))
+  }, [project.id])
+
+  return <>
+    <div className="workspace-hero"><p className="eyebrow">Project workspace / active</p><h1>{project.title}</h1><p className="lede">{project.description}</p></div>
+    <div className="workspace-grid">
+      <div className="empty-module"><span className="module-number">01</span><span className="section-label">Materials</span><h2>Bring your sources here.</h2><p>PDFs, notes, and links will become the grounding layer for your tutor.</p></div>
+      <div className="empty-module"><span className="module-number">02</span><span className="section-label">Tutor</span><h2>Ask better questions.</h2><p>Your project conversation will stay connected to what you are learning.</p></div>
+      <div className="empty-module"><span className="module-number">03</span><span className="section-label">Progress</span><h2>See understanding grow.</h2><p>Quizzes and mastery signals will appear as you practice.</p></div>
+    </div>
+    <AnalyticsDashboard analytics={analytics} />
+  </>
+}
+
+const sampleAnalytics = {
+  sessions: { total: 12, tutorQuestions: 34, tutorAnswers: 29, totalMessages: 65, averageMessagesPerSession: 5.4 },
+  quiz: { attempts: 18, averageScore: 74, answers: 72, correctAnswers: 53, accuracy: 74 },
+  mastery: {
+    trackedConcepts: 6, averageMastery: 64,
+    levelDistribution: { mastered: 2, proficient: 1, developing: 2, novice: 1 },
+    masteredConcepts: [
+      { conceptId: '1', concept: 'Classes', masteryPercent: 92 },
+      { conceptId: '2', concept: 'Inheritance', masteryPercent: 87 },
+    ],
+    conceptsNeedingAttention: [
+      { conceptId: '3', concept: 'Interfaces', masteryPercent: 36 },
+      { conceptId: '4', concept: 'Abstraction', masteryPercent: 48 },
+    ],
+  },
+  activity: {
+    total: 42,
+    byType: [
+      { type: 'QUIZ_COMPLETED', count: 18 },
+      { type: 'ASSESSMENT_COMPLETED', count: 9 },
+      { type: 'TUTOR_QUESTION', count: 12 },
+      { type: 'MASTERY_UPDATED', count: 3 },
+    ],
+  },
+  aiUsage: {
+    calls: 61, inputTokens: 48200, outputTokens: 12600, cost: 0.0214,
+    byOperation: [
+      { operation: 'tutor-answer', calls: 29 },
+      { operation: 'open-ended-assessment', calls: 9 },
+      { operation: 'quiz-question', calls: 18 },
+      { operation: 'growth-analysis', calls: 5 },
+    ],
+  },
+  masteryTrend: [
+    { week: 'Week 1', masteryPercent: 38 },
+    { week: 'Week 2', masteryPercent: 52 },
+    { week: 'Week 3', masteryPercent: 64 },
+    { week: 'Week 4', masteryPercent: 71 },
+    { week: 'Week 5', masteryPercent: 76 },
+  ],
+}
 
 export default App

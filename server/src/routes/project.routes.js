@@ -7,6 +7,7 @@ import { enqueueMaterialJob } from '../services/material-queue.js'
 import { saveMaterialFile } from '../services/material-storage.js'
 import { answerQuestion } from '../services/knowledge-engine.js'
 import { generateAdaptiveQuiz, publicQuiz } from '../services/quiz-engine.js'
+import { getProjectAnalytics } from '../services/analytics.service.js'
 
 const router = express.Router()
 const projectAccess = [authenticate, requireProjectAccess]
@@ -142,11 +143,8 @@ router.post('/:projectId/quizzes', projectAccess, async (request, response, next
 
 router.get('/:projectId/analytics', projectAccess, async (request, response, next) => {
   try {
-    const activity = await Activity.find({ projectId: request.scope.projectId, userId: request.user._id })
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean()
-    return response.json({ projectId: request.scope.projectId, activity })
+    const analytics = await getProjectAnalytics({ projectId: request.scope.projectId, userId: request.user._id })
+    return response.json({ projectId: request.scope.projectId, analytics, activity: analytics.activity.recent })
   } catch (error) {
     return next(error)
   }
