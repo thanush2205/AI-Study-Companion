@@ -1,6 +1,7 @@
 import { Concept, Mastery, Quiz, QuizAttempt } from '../models/index.js'
 import { AIService } from './ai-provider-router.js'
 import { updateMastery } from './mastery-engine.js'
+import { EVENTS, recordEvent } from './event.service.js'
 
 const difficultyForScore = (score) => score < 0.4 ? 'easy' : score <= 0.7 ? 'medium' : 'hard'
 const levelForScore = (score) => score < 0.4 ? 'novice' : score < 0.6 ? 'developing' : score < 0.8 ? 'proficient' : 'mastered'
@@ -69,6 +70,14 @@ export async function generateAdaptiveQuiz({ projectId, userId, count = 5 }) {
     })),
     generationStatus: 'ready',
   })
+  await recordEvent({
+    type: EVENTS.QUIZ_STARTED,
+    projectId,
+    userId,
+    entityType: 'Quiz',
+    entityId: quiz._id,
+    metadata: { count: quiz.questions.length },
+  })
   return quiz.toObject()
 }
 
@@ -89,6 +98,14 @@ export async function evaluateQuiz({ quiz, projectId, userId, answers }) {
     explanation: question.explanation,
   }))
   const score = evaluated.length ? evaluated.filter((answer) => answer.correct).length / evaluated.length : 0
+  await recordEvent({
+    type: EVENTS.QUIZ_ANSWERED,
+    projectId,
+    userId,
+    entityType: 'Quiz',
+    entityId: quiz._id,
+    metadata: { answers: evaluated.length, correct: evaluated.filter((a) => a.correct).length },
+  })
   const attempt = await QuizAttempt.create({
     projectId,
     quizId: quiz._id,
@@ -96,6 +113,14 @@ export async function evaluateQuiz({ quiz, projectId, userId, answers }) {
     answers: evaluated.map(({ questionId, answer, correct }) => ({ questionId, answer, correct })),
     score,
     completedAt: new Date(),
+  })
+  await recordEvent({
+    type: EVENTS.QUIZ_COMPLETED,
+    projectId,
+    userId,
+    entityType: 'Quiz',
+    entityId: quiz._id,
+    metadata: { score, attemptId: attempt._id },
   })
 
   const conceptResults = new Map()

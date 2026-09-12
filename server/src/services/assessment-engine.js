@@ -1,6 +1,7 @@
-import { Activity, Assessment, Concept, Mastery } from '../models/index.js'
+import { Assessment, Concept } from '../models/index.js'
 import { AIService } from './ai-provider-router.js'
 import { updateMastery } from './mastery-engine.js'
+import { EVENTS, recordEvent } from './event.service.js'
 
 function parseEvaluation(text) {
   const value = JSON.parse(text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim())
@@ -63,7 +64,7 @@ export async function evaluateOpenAssessment({ projectId, userId, conceptId, que
     summary: evaluation.feedback,
   })
   await updateMastery({ projectId, userId, conceptId, performance: evaluation.score / 100, source: 'assessment', referenceId: assessment._id, evidence: [evaluation.feedback] })
-  await Activity.create({ projectId, userId, type: 'assessment.completed', entityType: 'Assessment', entityId: assessment._id, metadata: { score: evaluation.score, provider } })
+  await recordEvent({ type: EVENTS.ASSESSMENT_COMPLETED, projectId, userId, entityType: 'Assessment', entityId: assessment._id, metadata: { score: evaluation.score, conceptId, provider } })
   return { assessment, evaluation: { ...evaluation, provider, model } }
 }
 

@@ -1,4 +1,5 @@
 import { Concept, Mastery } from '../models/index.js'
+import { EVENTS, recordEvent } from './event.service.js'
 
 const levelForMastery = (score) => score < 0.4 ? 'novice' : score < 0.6 ? 'developing' : score < 0.8 ? 'proficient' : 'mastered'
 const progressBar = (score) => `${'█'.repeat(Math.round(score * 10))}${'░'.repeat(10 - Math.round(score * 10))}`
@@ -10,7 +11,7 @@ export async function updateMastery({ projectId, userId, conceptId, performance,
   const newMastery = Number((oldMastery * 0.7 + boundedPerformance * 0.3).toFixed(4))
   const historyEntry = { previousMastery: oldMastery, performance: boundedPerformance, newMastery, source, referenceId, createdAt: new Date() }
 
-  return Mastery.findOneAndUpdate(
+  const updated = await Mastery.findOneAndUpdate(
     { projectId, userId, conceptId },
     {
       $set: { score: newMastery, currentMastery: newMastery, previousMastery: oldMastery, level: levelForMastery(newMastery), updatedBy: source === 'quiz' ? 'assessment' : source, evidence },
@@ -19,6 +20,15 @@ export async function updateMastery({ projectId, userId, conceptId, performance,
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   )
+  await recordEvent({
+    type: EVENTS.MASTERY_UPDATED,
+    projectId,
+    userId,
+    entityType: 'Concept',
+    entityId: conceptId,
+    metadata: { conceptId, previousMastery: oldMastery, newMastery, performance: boundedPerformance, source },
+  })
+  return updated
 }
 
 export async function getMasterySnapshot({ projectId, userId }) {

@@ -18,9 +18,12 @@ import growthRouter from './routes/growth.routes.js'
 import recommendationRouter from './routes/recommendation.routes.js'
 import analyticsRouter from './routes/analytics.routes.js'
 import { errorHandler } from './middleware/error-handler.js'
+import { registerEventListeners } from './services/event-listeners.js'
 
 const app = express()
 const redis = env.redisUrl ? new Redis(env.redisUrl, { lazyConnect: true }) : null
+
+registerEventListeners()
 
 app.use(helmet())
 app.use(cors({ origin: env.clientOrigin }))

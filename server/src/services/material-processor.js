@@ -3,6 +3,7 @@ import { Chunk, Material } from '../models/index.js'
 import { ProcessingJob } from '../models/index.js'
 import { readMaterialFile } from './material-storage.js'
 import { generateEmbedding } from './embedding.service.js'
+import { EVENTS, recordEvent } from './event.service.js'
 
 const chunkSize = 1200
 const chunkOverlap = 150
@@ -56,6 +57,14 @@ export async function processMaterial(materialId, jobId) {
       metadata: { pageCount: parsed.total, characterCount: parsed.text.length, chunkCount: contents.length },
     })
     await ProcessingJob.findByIdAndUpdate(job._id, { status: 'COMPLETED', progress: 100, completedAt: new Date() })
+    await recordEvent({
+      type: EVENTS.MATERIAL_PROCESSED,
+      projectId: material.projectId,
+      userId: material.uploadedBy ?? null,
+      entityType: 'Material',
+      entityId: materialId,
+      metadata: { chunkCount: contents.length, pageCount: parsed.total },
+    })
   } catch (error) {
     await Material.findByIdAndUpdate(materialId, { processingStatus: 'FAILED', processingError: error.message })
     await ProcessingJob.findByIdAndUpdate(job._id, { status: 'FAILED', error: error.message, completedAt: new Date() })

@@ -1,4 +1,5 @@
 import { Activity, Assessment, Concept, Mastery, Project, Recommendation } from '../models/index.js'
+import { EVENTS, recordEvent } from './event.service.js'
 
 const reviewMasteryThreshold = 0.4
 const tutorMasteryThreshold = 0.6
@@ -164,6 +165,13 @@ export async function generateRecommendations({ projectId, userId }) {
     })
     persisted.push(doc.toObject())
   }
+
+  await recordEvent({
+    type: EVENTS.RECOMMENDATION_GENERATED,
+    projectId,
+    userId,
+    metadata: { count: persisted.length, topType: top?.type ?? null, topConcept: top?.concept ?? null },
+  })
 
   return {
     top: top

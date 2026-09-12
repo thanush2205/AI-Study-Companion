@@ -2,6 +2,7 @@ import express from 'express'
 import { Project, Space } from '../models/index.js'
 import { authenticate } from '../middleware/auth.js'
 import { requireSpaceAccess } from '../middleware/space-access.js'
+import { EVENTS, recordEvent } from '../services/event.service.js'
 
 const router = express.Router()
 
@@ -13,6 +14,7 @@ router.post('/', async (request, response, next) => {
     if (!name?.trim()) return response.status(400).json({ error: 'Space name is required' })
 
     const space = await Space.create({ userId: request.user._id, name: name.trim(), description, color })
+    await recordEvent({ type: EVENTS.SPACE_CREATED, userId: request.user._id, entityType: 'Space', entityId: space._id, metadata: { name: space.name } })
     return response.status(201).json({ space })
   } catch (error) {
     return next(error)
@@ -85,6 +87,7 @@ router.post('/:spaceId/projects', requireSpaceAccess, async (request, response, 
       spaceId: request.space._id,
       userId: request.user._id,
     })
+    await recordEvent({ type: EVENTS.PROJECT_CREATED, projectId: project._id, userId: request.user._id, entityType: 'Project', entityId: project._id, metadata: { title: project.title, spaceId: project.spaceId } })
     return response.status(201).json({ project })
   } catch (error) {
     return next(error)

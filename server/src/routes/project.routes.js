@@ -8,6 +8,7 @@ import { saveMaterialFile } from '../services/material-storage.js'
 import { answerQuestion } from '../services/knowledge-engine.js'
 import { generateAdaptiveQuiz, publicQuiz } from '../services/quiz-engine.js'
 import { getProjectAnalytics } from '../services/analytics.service.js'
+import { EVENTS, recordEvent } from '../services/event.service.js'
 
 const router = express.Router()
 const projectAccess = [authenticate, requireProjectAccess]
@@ -50,6 +51,7 @@ router.delete('/:projectId', projectAccess, async (request, response, next) => {
 })
 
 router.get('/:projectId', projectAccess, (request, response) => {
+  recordEvent({ type: EVENTS.PROJECT_ACCESSED, projectId: request.scope.projectId, userId: request.user._id, entityType: 'Project', entityId: request.scope.projectId }).catch(() => {})
   response.json({ project: request.project })
 })
 
@@ -106,6 +108,7 @@ router.post('/:projectId/materials', projectAccess, upload.single('file'), async
     }
 
     const queuedMaterial = await Material.findById(material._id).lean()
+    await recordEvent({ type: EVENTS.MATERIAL_UPLOADED, projectId: material.projectId, userId: request.user._id, entityType: 'Material', entityId: material._id, metadata: { title: material.title, size: request.file.size } })
     return response.status(202).json({ material: queuedMaterial, job })
   } catch (error) {
     return next(error)

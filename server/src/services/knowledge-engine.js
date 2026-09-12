@@ -1,7 +1,8 @@
-import { Conversation, Message } from '../models/index.js'
+import { Chunk, Conversation, Material, Message } from '../models/index.js'
 import { cosineSimilarity, generateEmbedding } from './embedding.service.js'
 import { AIService } from './ai-provider-router.js'
 import { buildTutorContext } from './learning-context.service.js'
+import { EVENTS, recordEvent } from './event.service.js'
 
 const retrievalLimit = 5
 const evidenceThreshold = 0.18
@@ -77,6 +78,14 @@ export async function answerQuestion({ projectId, userId, question, conversation
 
   if (!conversation) throw Object.assign(new Error('Conversation not found'), { statusCode: 404 })
   await Message.create({ projectId, conversationId: conversation._id, role: 'user', content: question })
+  await recordEvent({
+    type: EVENTS.TUTOR_QUESTION,
+    projectId,
+    userId,
+    entityType: 'Conversation',
+    entityId: conversation._id,
+    metadata: { question: question.slice(0, 200), conversationId: conversation._id },
+  })
   const assistantMessage = await Message.create({
     projectId,
     conversationId: conversation._id,
@@ -84,6 +93,14 @@ export async function answerQuestion({ projectId, userId, question, conversation
     content: result.answer,
     citations: result.citations.map((citation) => ({ chunkId: citation.chunkId, quote: citation.quote, pageNumber: citation.pageNumber })),
     metadata: { grounded: !result.refused, evidenceCount: evidence.length, evidenceThreshold, provider: result.provider, model: result.model },
+  })
+  await recordEvent({
+    type: EVENTS.TUTOR_RESPONSE,
+    projectId,
+    userId,
+    entityType: 'Message',
+    entityId: assistantMessage._id,
+    metadata: { conversationId: conversation._id, grounded: !result.refused, provider: result.provider ?? null },
   })
 
   return {
