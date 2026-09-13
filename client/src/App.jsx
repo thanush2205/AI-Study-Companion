@@ -14,16 +14,22 @@ async function get(path, token) {
   return response.json()
 }
 
-const sampleSpaces = [
-  { _id: 's1', name: 'Computer Science', description: 'Algorithms, systems, and the ideas behind them.', color: '#e36750', projections: 3 },
-  { _id: 's2', name: 'Design practice', description: 'A place for visual thinking and product craft.', color: '#41a37c', projections: 2 },
-  { _id: 's3', name: 'Personal growth', description: 'Books, notes, and ideas worth returning to.', color: '#d9a441', projections: 1 },
-]
+async function post(path, body, token) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const response = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(20000),
+  })
+  const text = await response.text()
+  let json
+  try { json = JSON.parse(text) } catch { json = {} }
+  return { status: response.status, json }
+}
 
-const sampleProjects = [
-  { _id: 'p1', title: 'Operating systems', description: 'Understand the machinery beneath modern computing.', status: 'active', learningGoal: 'Explain core concepts without memorizing definitions.' },
-  { _id: 'p2', title: 'Algorithms, clearly', description: 'Turn complexity into intuition and working code.', status: 'active', learningGoal: 'Choose the right approach for unfamiliar problems.' },
-]
+const spaceColors = ['#e36750', '#41a37c', '#d9a441', '#7a9bd4']
 
 function App() {
   const [apiStatus, setApiStatus] = useState('Checking')
@@ -45,16 +51,26 @@ function App() {
 
   useEffect(() => {
     if (!token) return
-    get('/api/health', token)
-    get('/api/spaces', token).then((json) => { if (json?.spaces) setSpaces(json.spaces) })
+    loadSpaces()
   }, [token])
+
+  async function loadSpaces() {
+    const json = await get('/api/spaces', token)
+    setSpaces(json?.spaces ?? null)
+  }
 
   useEffect(() => {
     if (!token || !selectedSpace?._id) { setProjects(null); return }
-    get(`/api/spaces/${selectedSpace._id}/projects`, token).then((json) => { if (json?.projects) setProjects(json.projects) })
+    loadProjects()
   }, [token, selectedSpace])
 
+  async function loadProjects() {
+    const json = await get(`/api/spaces/${selectedSpace._id}/projects`, token)
+    setProjects(json?.projects ?? null)
+  }
+
   const stale = user?.name?.slice(0, 2)?.toUpperCase() ?? 'SC'
+  const isAdmin = user?.role === 'ADMIN'
 
   function signOut() {
     window.localStorage.removeItem('token')
@@ -62,6 +78,7 @@ function App() {
     setToken(null); setUser({})
     setActiveView('auth'); setAuthMode('login')
     setSelectedSpace(null); setSelectedProject(null)
+    setSpaces(null); setProjects(null)
   }
 
   return (
@@ -93,7 +110,7 @@ function App() {
             <p className="section-label">Your learning system</p>
             <button className={activeView === 'dashboard' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveView('dashboard')}>⌂ <span>Dashboard</span></button>
             <button className={activeView === 'spaces' || activeView === 'space-detail' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('spaces'); setSelectedProject(null) }}>▦ <span>Spaces</span></button>
-            <button className={activeView === 'admin' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('admin'); setBrowseUserId(null) }}>⊕ <span>Admin</span></button>
+            {isAdmin && <button className={activeView === 'admin' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('admin'); setBrowseUserId(null) }}>⊕ <span>Admin</span></button>}
             <div className="sidebar-rule" />
             <p className="sidebar-note">Each space holds the projects, materials, and progress that belong together.</p>
             <div className="sidebar-spacer" />
@@ -107,11 +124,11 @@ function App() {
               {selectedProject && <><span>/</span><strong>{selectedProject.title}</strong></>}
             </div>
 
-            {activeView === 'dashboard' && <Dashboard user={user} onSpaces={() => { setActiveView('spaces'); setSelectedProject(null) }} />}
-            {activeView === 'spaces' && <Spaces spaces={spaces ?? sampleSpaces} onSelect={(space) => { setSelectedSpace(space); setActiveView('space-detail'); setSelectedProject(null) }} />}
-            {activeView === 'space-detail' && selectedSpace && <SpaceDetail space={selectedSpace} projects={projects ?? sampleProjects} onSelectProject={(project) => { setSelectedProject(project); setActiveView('project') }} />}
+            {activeView === 'dashboard' && <Dashboard user={user} spaces={spaces} onSpaces={() => { setActiveView('spaces'); setSelectedProject(null) }} />}
+            {activeView === 'spaces' && <Spaces spaces={spaces} onSelect={(space) => { setSelectedSpace(space); setActiveView('space-detail'); setSelectedProject(null) }} onCreated={loadSpaces} token={token} />}
+            {activeView === 'space-detail' && selectedSpace && <SpaceDetail token={token} space={selectedSpace} projects={projects} onSelectProject={(project) => { setSelectedProject(project); setActiveView('project') }} onCreated={loadProjects} />}
             {activeView === 'project' && selectedProject && <ProjectWorkspace project={selectedProject} token={token} />}
-            {activeView === 'admin' && <AdminDashboard />}
+            {activeView === 'admin' && isAdmin && <AdminDashboard user={user} />}
           </section>
         </div>
       )}
@@ -121,10 +138,11 @@ function App() {
   )
 }
 
-function Dashboard({ user, onSpaces }) {
-  const firstName = user?.name?.split(' ')[0] ?? 'Thanush'
+function Dashboard({ user, onSpaces, spaces }) {
+  const firstName = user?.name?.split(' ')[0] ?? 'there'
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  const spaceCount = Array.isArray(spaces) ? spaces.length : 0
   return (
     <>
       <div className="page-heading">
@@ -132,42 +150,118 @@ function Dashboard({ user, onSpaces }) {
         <button className="primary-action" onClick={onSpaces}>Explore spaces <span>→</span></button>
       </div>
       <div className="dashboard-grid">
-        <div className="feature-panel"><span className="section-label">Next up</span><h2>Build your first learning space</h2><p>Group related projects together so every conversation, quiz, and insight has a clear home.</p><button className="text-action" onClick={onSpaces}>View spaces →</button></div>
-        <div className="metric-panel"><span className="section-label">This week</span><strong>0</strong><p>study sessions</p><div className="metric-line"><span /><span /><span /><span /><span /><span /><span /></div></div>
+        <div className="feature-panel"><span className="section-label">Next up</span><h2>{spaceCount ? 'Open a space to keep going.' : 'Build your first learning space'}</h2><p>{spaceCount ? 'Everything — materials, tutor sessions, quizzes, and mastery — lives inside a space.' : 'Group related projects together so every conversation, quiz, and insight has a clear home.'}</p><button className="text-action" onClick={onSpaces}>View spaces →</button></div>
+        <div className="metric-panel"><span className="section-label">Your spaces</span><strong>{spaceCount}</strong><p>{spaceCount === 1 ? 'learning space' : 'learning spaces'}</p><button className="text-action" onClick={onSpaces}>Manage spaces →</button></div>
       </div>
     </>
   )
 }
 
-function Spaces({ spaces, onSelect }) {
+function Spaces({ spaces, onSelect, onCreated, token }) {
+  const [showForm, setShowForm] = useState(false)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [color, setColor] = useState(spaceColors[0])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function createSpace(e) {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    const { status, json } = await post('/api/spaces', { name: name.trim(), description: description.trim(), color }, token)
+    setBusy(false)
+    if (status === 201 && json.space) {
+      setName(''); setDescription(''); setColor(spaceColors[0]); setShowForm(false)
+      onCreated()
+    } else {
+      setError(json.error ?? 'Could not create the space.')
+    }
+  }
+
   return (
     <>
-      <div className="page-heading compact"><div><p className="eyebrow">Your spaces</p><h1>Make room for <em>curiosity.</em></h1></div><span className="mono-label">{spaces.length} spaces</span></div>
-      <div className="space-grid">{spaces.map((space) => {
-        const colorKey = `${space._id}${space.name}`.length
-        const color = space.color ?? ['#e36750', '#41a37c', '#d9a441', '#7a9bd4'][colorKey % 4]
-        return (
-          <button className="space-card" key={space._id} onClick={() => onSelect(space)}>
-            <span className="space-color" style={{ background: color }} /><div><h2>{space.name}</h2><p>{space.description ?? 'A home for related projects.'}</p><small>{space.projections ?? space.projectCount ?? 0} projects <span>→</span></small></div>
-          </button>
-        )
-      })}</div>
+      <div className="page-heading compact">
+        <div><p className="eyebrow">Your spaces</p><h1>Make room for <em>curiosity.</em></h1></div>
+        <button className="primary-action" onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancel' : 'New space'} <span>{showForm ? '×' : '+'}</span></button>
+      </div>
+      {showForm && (
+        <form className="auth-card" style={{ marginBottom: 26 }} onSubmit={createSpace}>
+          <span className="section-label">Create a space</span>
+          <label>Name<input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Computer Science" required /></label>
+          <label>Description<input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What lives in this space?" /></label>
+          {error && <p className="auth-error">{error}</p>}
+          <button className="primary-action" disabled={busy || !name.trim()}>{busy ? 'Creating…' : 'Create space'} <span>→</span></button>
+        </form>
+      )}
+      {spaces === null ? (
+        <p className="insight-empty">Loading your spaces…</p>
+      ) : spaces.length === 0 ? (
+        <p className="insight-empty">No spaces yet — create your first one to start learning.</p>
+      ) : (
+        <div className="space-grid">{spaces.map((space) => {
+          const colorKey = `${space._id}${space.name}`.length
+          return (
+            <button className="space-card" key={space._id} onClick={() => onSelect(space)}>
+              <span className="space-color" style={{ background: space.color ?? spaceColors[colorKey % 4] }} /><div><h2>{space.name}</h2><p>{space.description ?? 'A home for related projects.'}</p><small>{space.projectCount ?? 0} projects <span>→</span></small></div>
+            </button>
+          )
+        })}</div>
+      )}
     </>
   )
 }
 
-function SpaceDetail({ space, projects, onSelectProject }) {
+function SpaceDetail({ token, space, projects, onSelectProject, onCreated }) {
+  const [showForm, setShowForm] = useState(false)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [learningGoal, setLearningGoal] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function createProject(e) {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    const { status, json } = await post(`/api/spaces/${space._id}/projects`, { title: title.trim(), description: description.trim(), learningGoal: learningGoal.trim() }, token)
+    setBusy(false)
+    if (status === 201 && json.project) {
+      setTitle(''); setDescription(''); setLearningGoal(''); setShowForm(false)
+      onCreated()
+    } else {
+      setError(json.error ?? 'Could not create the project.')
+    }
+  }
+
   return (
     <>
       <div className="space-hero"><span className="space-color large" style={{ background: space.color ?? '#e36750' }} /><p className="eyebrow">Space detail</p><h1>{space.name}</h1><p className="lede">{space.description ?? 'A home for related projects.'}</p></div>
-      <div className="section-heading"><div><span className="section-label">Projects</span><h2>What are you learning?</h2></div><span className="mono-label">{projects.length} projects</span></div>
-      <div className="project-list">{projects.map((project) => (
-        <button className="project-row" key={project._id} onClick={() => onSelectProject(project)}>
-          <div className="project-index">0{projects.indexOf(project) + 1}</div>
-          <div><h2>{project.title}</h2><p>{project.description}</p><small>Goal · {project.learningGoal}</small></div>
-          <span className="project-arrow">→</span>
-        </button>
-      ))}</div>
+      <div className="section-heading">
+        <div><span className="section-label">Projects</span><h2>What are you learning?</h2></div>
+        <button className="primary-action" onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancel' : 'New project'} <span>{showForm ? '×' : '+'}</span></button>
+      </div>
+      {showForm && (
+        <form className="auth-card" style={{ marginBottom: 26 }} onSubmit={createProject}>
+          <span className="section-label">Create a project</span>
+          <label>Title<input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Operating systems" required /></label>
+          <label>Description<input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this project about?" /></label>
+          <label>Learning goal<input type="text" value={learningGoal} onChange={(e) => setLearningGoal(e.target.value)} placeholder="What do you want to be able to do?" /></label>
+          {error && <p className="auth-error">{error}</p>}
+          <button className="primary-action" disabled={busy || !title.trim()}>{busy ? 'Creating…' : 'Create project'} <span>→</span></button>
+        </form>
+      )}
+      {projects === null ? (
+        <p className="insight-empty">Loading projects…</p>
+      ) : projects.length === 0 ? (
+        <p className="insight-empty">No projects yet — create one to start uploading materials.</p>
+      ) : (
+        <div className="project-list">{projects.map((project) => (
+          <button className="project-row" key={project._id} onClick={() => onSelectProject(project)}>
+            <div className="project-index">0{projects.indexOf(project) + 1}</div>
+            <div><h2>{project.title}</h2><p>{project.description}</p><small>Goal · {project.learningGoal}</small></div>
+            <span className="project-arrow">→</span>
+          </button>
+        ))}</div>
+      )}
     </>
   )
 }

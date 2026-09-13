@@ -4,6 +4,7 @@ import { ProcessingJob } from '../models/index.js'
 import { readMaterialFile } from './material-storage.js'
 import { generateEmbedding } from './embedding.service.js'
 import { EVENTS, recordEvent } from './event.service.js'
+import { extractConcepts } from './concept-extraction.js'
 
 const chunkSize = 1200
 const chunkOverlap = 150
@@ -51,6 +52,16 @@ export async function processMaterial(materialId, jobId) {
       tokenCount: Math.ceil(content.length / 4),
       embedding: generateEmbedding(content),
     })))
+
+    try {
+      await extractConcepts({
+        projectId: material.projectId,
+        materialId,
+        text: contents.map((chunk) => chunk.content).join(' '),
+      })
+    } catch (error) {
+      console.warn(`[concept-extraction] failed for material ${materialId}: ${error.message}`)
+    }
 
     await Material.findByIdAndUpdate(materialId, {
       processingStatus: 'READY',

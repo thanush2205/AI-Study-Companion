@@ -90,9 +90,9 @@ export function RegisterScreen({ onAuthed }) {
         <span className="section-label">Create account</span>
         <label>Name<input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required /></label>
         <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required /></label>
-        <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" minLength={6} required /></label>
+        <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" minLength={8} required /></label>
         {error && <p className="auth-error">{error}</p>}
-        <button className="primary-action" disabled={busy || !name || !email || password.length < 6}>{busy ? 'Creating…' : 'Create account'} <span>→</span></button>
+        <button className="primary-action" disabled={busy || !name || !email || password.length < 8}>{busy ? 'Creating…' : 'Create account'} <span>→</span></button>
         <p className="auth-switch">Already registered? <a onClick={onAuthed} href="#">Sign in</a></p>
       </form>
     </div>

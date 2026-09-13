@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { Activity, Conversation, Material, ProcessingJob, Project, Quiz } from '../models/index.js'
+import { Activity, Concept, Conversation, Material, Mastery, ProcessingJob, Project, Quiz } from '../models/index.js'
 import { authenticate } from '../middleware/auth.js'
 import { requireProjectAccess } from '../middleware/project-access.js'
 import { enqueueMaterialJob } from '../services/material-queue.js'
@@ -68,6 +68,25 @@ router.post('/:projectId/tutor/ask', projectAccess, async (request, response, ne
       conversationId,
     })
     return response.json({ projectId: request.scope.projectId, ...result })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/:projectId/concepts', projectAccess, async (request, response, next) => {
+  try {
+    const [concepts, mastery] = await Promise.all([
+      Concept.find({ projectId: request.scope.projectId }).sort({ createdAt: 1 }).select('name description sourceChunkIds materialId').lean(),
+      Mastery.find({ projectId: request.scope.projectId, userId: request.user._id }).select('conceptId currentMastery level attempts correct').lean(),
+    ])
+    const masteryByConcept = new Map(mastery.map((entry) => [entry.conceptId.toString(), entry]))
+    return response.json({
+      projectId: request.scope.projectId,
+      concepts: concepts.map((concept) => {
+        const mastered = masteryByConcept.get(concept._id.toString())
+        return mastered ? { ...concept, mastered } : { ...concept }
+      }),
+    })
   } catch (error) {
     return next(error)
   }

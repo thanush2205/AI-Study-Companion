@@ -214,6 +214,8 @@ footer { display: flex; justify-content: space-between; margin-top: auto; paddin
 .quiz-option { padding: 10px 14px; border: 1px solid var(--line); color: var(--ink); background: transparent; font: 600 .8rem var(--sans); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
 .quiz-option:hover { border-color: var(--coral); }
 .quiz-option.selected { border-color: var(--ink); background: var(--ink); color: white; }
+.quiz-option.ok { border-color: var(--mint); background: rgba(65,163,124,.1); color: var(--mint); }
+.quiz-option.wrong { border-color: var(--coral); background: rgba(227,103,80,.1); color: var(--coral); }
 .quiz-submit-bar { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 18px 22px; border: 1px solid var(--line); background: rgba(255,255,255,.55); }
 .quiz-submit-bar span { color: var(--muted); font-size: .8rem; }
 

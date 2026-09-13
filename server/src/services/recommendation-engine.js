@@ -161,7 +161,7 @@ export async function generateRecommendations({ projectId, userId }) {
       title: item.title,
       description: `${item.action} ${item.why}`,
       status: 'new',
-      metadata: { conceptId: item.conceptId, action: item.action, why: item.why },
+      metadata: { conceptId: item.conceptId, concept: item.concept, action: item.action, why: item.why },
     })
     persisted.push(doc.toObject())
   }

@@ -1,5 +1,5 @@
 import express from 'express'
-import { Activity, Conversation, Message } from '../models/index.js'
+import { Conversation, Message } from '../models/index.js'
 import { authenticate } from '../middleware/auth.js'
 import { requireConversationAccess } from '../middleware/conversation-access.js'
 import { requireProjectAccess } from '../middleware/project-access.js'
@@ -13,7 +13,6 @@ router.post('/projects/:projectId/conversations', authenticate, requireProjectAc
     const { projectId } = request.params
     const { title } = request.body
     const conversation = await Conversation.create({ projectId, userId: request.user._id, title: title?.trim() || 'New study session' })
-    await Activity.create({ projectId, userId: request.user._id, type: 'conversation.created', entityType: 'Conversation', entityId: conversation._id })
     return response.status(201).json({ conversation })
   } catch (error) {
     return next(error)
@@ -30,14 +29,6 @@ router.post('/conversations/:conversationId/messages', conversationAccess, async
       userId: request.user._id,
       question: question.trim(),
       conversationId: request.conversation._id,
-    })
-    await Activity.create({
-      projectId: request.scope.projectId,
-      userId: request.user._id,
-      type: result.refused ? 'tutor.refused' : 'tutor.answered',
-      entityType: 'Conversation',
-      entityId: request.conversation._id,
-      metadata: { evidenceCount: result.evidenceCount, provider: result.provider, refused: result.refused },
     })
     return response.json({ projectId: request.scope.projectId, ...result })
   } catch (error) {

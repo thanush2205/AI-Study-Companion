@@ -2,6 +2,7 @@ import express from 'express'
 import { Chunk, Material, ProcessingJob } from '../models/index.js'
 import { authenticate } from '../middleware/auth.js'
 import { requireMaterialAccess } from '../middleware/material-access.js'
+import { deleteMaterialFile } from '../services/material-storage.js'
 
 const router = express.Router()
 
@@ -19,6 +20,7 @@ router.get('/:id', requireMaterialAccess, async (request, response, next) => {
 
 router.delete('/:id', requireMaterialAccess, async (request, response, next) => {
   try {
+    await deleteMaterialFile(request.material.storageKey).catch(() => {})
     await Chunk.deleteMany({ materialId: request.material._id })
     await ProcessingJob.deleteMany({ materialId: request.material._id })
     await Material.findByIdAndDelete(request.material._id)
