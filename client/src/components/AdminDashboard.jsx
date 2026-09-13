@@ -54,6 +54,7 @@ function AdminDashboard({ user }) {
   const [overview, setOverview] = useState(null)
   const [users, setUsers] = useState(null)
   const [selected, setSelected] = useState(null)
+  const [clickedId, setClickedId] = useState(null)
   const [evaluations, setEvaluations] = useState(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState(null)
@@ -83,6 +84,13 @@ function AdminDashboard({ user }) {
 
   useEffect(() => { if (user?.role === 'ADMIN') loadAll() }, [user?.role])
 
+  useEffect(() => {
+    if (!selected?.user) return
+    const onKey = (event) => { if (event.key === 'Escape') { setSelected(null); setClickedId(null) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selected?.user])
+
   const fetchDetail = async (userId) => {
     try {
       const detail = await get(`/api/admin/users/${userId}`)
@@ -107,6 +115,8 @@ function AdminDashboard({ user }) {
       setRunning(false)
     }
   }
+
+  const closeDetail = () => { setSelected(null); setClickedId(null) }
 
   if (user?.role !== 'ADMIN') {
     return (
@@ -172,7 +182,7 @@ function AdminDashboard({ user }) {
       <div className="section-heading" style={{ marginTop: 44 }}><div><span className="section-label">Users</span><h2>Accounts in the system</h2></div><span className="mono-label">{users?.length ?? 0} shown</span></div>
       <div className="admin-user-table">
         {users?.map((user) => (
-          <button className="admin-user-row" key={user._id} onClick={() => { setSelected(user); fetchDetail(user._id) }}>
+          <button className={clickedId === user._id ? 'admin-user-row selected' : 'admin-user-row'} key={user._id} onClick={() => { setClickedId(user._id); setSelected(user); fetchDetail(user._id) }}>
             <span>{user.name}</span><small>{user.email}</small><code>{user.role}</code><strong>{user.spaces ?? 0}</strong><strong>{user.projects ?? 0}</strong><strong>{user.activity ?? 0}</strong><em>→</em>
           </button>
         ))}
@@ -180,20 +190,28 @@ function AdminDashboard({ user }) {
       </div>
 
       {selected?.user && (
-        <div className="admin-detail">
-          <div className="section-heading" style={{ marginTop: 44 }}><div><span className="section-label">Drill-down</span><h2>{selected.user.name}</h2><p className="lede small">{selected.user.email} · {selected.user.role}</p></div><button className="text-action" onClick={() => setSelected(null)}>Close ×</button></div>
-          <div className="analytics-stat-grid">
-            <Stat label="Spaces" value={selected.spaces?.length ?? 0} detail="Active learning spaces" />
-            <Stat label="Projects" value={selected.projects?.length ?? 0} detail="Across spaces" />
-            <Stat label="Avg mastery" value={`${selected.learningAnalytics?.averageMastery ?? 0}%`} detail="Across concepts" />
-            <Stat label="Quiz accuracy" value={`${selected.learningAnalytics?.quizAccuracy ?? 0}%`} detail={`${selected.learningAnalytics?.quizAttempts ?? 0} attempts`} />
-          </div>
-          <div className="analytics-chart-grid">
-            <div className="analytics-chart-panel"><span className="section-label">Activity</span><ul className="admin-activity-list">{(selected.activity?.byType ?? []).map((row) => <li key={row.type}><span>{row.type}</span><strong>{row.count}</strong></li>)}</ul>{!selected.activity?.byType?.length && <div className="analytics-empty">No activity recorded.</div>}</div>
-            <div className="analytics-chart-panel"><span className="section-label">AI usage</span><div className="analytics-stat-strip single"><Stat label="Requests" value={selected.aiUsage?.requests ?? 0} detail="Lifetime calls" /><Stat label="Cost" value={`$${(selected.aiUsage?.estimatedCost ?? 0).toFixed(4)}`} detail="Estimated spend" /><Stat label="Latency" value={`${selected.aiUsage?.averageLatencySec ?? 0}s`} detail="Average" /></div></div>
-          </div>
-          <div className="analytics-chart-panel wide" style={{ marginTop: 14 }}><span className="section-label">Projects</span>{selected.projects?.length ? <div className="project-list">{selected.projects.map((project) => <div className="project-row" key={project._id}><div className="project-index">{project.status}</div><div><h2>{project.title}</h2><p>{project.learningGoal ?? 'No learning goal set'}</p></div><span className="project-arrow">→</span></div>)}</div> : <div className="analytics-empty">No projects yet.</div>}</div>
-        </div>
+        <>
+          <div className="admin-drawer-backdrop" onClick={closeDetail} />
+          <aside className="admin-drawer" role="dialog" aria-label={`Details for ${selected.user.name}`}>
+            <div className="admin-drawer-head">
+              <div><p className="section-label">Drill-down</p><h2>{selected.user.name}</h2><p className="lede small">{selected.user.email} · {selected.user.role}</p></div>
+              <button className="admin-drawer-close" aria-label="Close drill-down" onClick={closeDetail}>×</button>
+            </div>
+            <div className="admin-drawer-body">
+              <div className="analytics-stat-grid">
+                <Stat label="Spaces" value={selected.spaces?.length ?? 0} detail="Active learning spaces" />
+                <Stat label="Projects" value={selected.projects?.length ?? 0} detail="Across spaces" />
+                <Stat label="Avg mastery" value={`${selected.learningAnalytics?.averageMastery ?? 0}%`} detail="Across concepts" />
+                <Stat label="Quiz accuracy" value={`${selected.learningAnalytics?.quizAccuracy ?? 0}%`} detail={`${selected.learningAnalytics?.quizAttempts ?? 0} attempts`} />
+              </div>
+              <div className="analytics-chart-grid" style={{ marginTop: 14 }}>
+                <div className="analytics-chart-panel"><span className="section-label">Activity</span><ul className="admin-activity-list">{(selected.activity?.byType ?? []).map((row) => <li key={row.type}><span>{row.type}</span><strong>{row.count}</strong></li>)}</ul>{!selected.activity?.byType?.length && <div className="analytics-empty">No activity recorded.</div>}</div>
+                <div className="analytics-chart-panel"><span className="section-label">AI usage</span><div className="analytics-stat-strip single"><Stat label="Requests" value={selected.aiUsage?.requests ?? 0} detail="Lifetime calls" /><Stat label="Cost" value={`$${(selected.aiUsage?.estimatedCost ?? 0).toFixed(4)}`} detail="Estimated spend" /><Stat label="Latency" value={`${selected.aiUsage?.averageLatencySec ?? 0}s`} detail="Average" /></div></div>
+              </div>
+              <div className="analytics-chart-panel wide" style={{ marginTop: 14 }}><span className="section-label">Projects</span>{selected.projects?.length ? <div className="project-list">{selected.projects.map((project) => <div className="project-row" key={project._id}><div className="project-index">{project.status}</div><div><h2>{project.title}</h2><p>{project.learningGoal ?? 'No learning goal set'}</p></div><span className="project-arrow">→</span></div>)}</div> : <div className="analytics-empty">No projects yet.</div>}</div>
+            </div>
+          </aside>
+        </>
       )}
     </div>
   )

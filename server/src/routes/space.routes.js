@@ -23,7 +23,23 @@ router.post('/', async (request, response, next) => {
 
 router.get('/', async (request, response, next) => {
   try {
-    const spaces = await Space.find({ userId: request.user._id }).sort({ createdAt: -1 }).lean()
+    const spaces = await Space.aggregate([
+      { $match: { userId: request.user._id } },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'projects',
+          let: { spaceId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$spaceId', '$$spaceId'] }, status: 'active' } },
+            { $count: 'count' },
+          ],
+          as: '_counts',
+        },
+      },
+      { $set: { projectCount: { $ifNull: [{ $arrayElemAt: ['$_counts.count', 0] }, 0] } } },
+      { $unset: '_counts' },
+    ])
     return response.json({ spaces })
   } catch (error) {
     return next(error)

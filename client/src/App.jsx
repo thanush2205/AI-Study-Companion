@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import AdminDashboard from './components/AdminDashboard'
 import { LoginScreen, RegisterScreen } from './components/AuthScreens'
 import ProjectWorkspace from './components/ProjectWorkspace'
@@ -39,9 +39,19 @@ function App() {
   const [authMode, setAuthMode] = useState('login')
   const [selectedSpace, setSelectedSpace] = useState(null)
   const [selectedProject, setSelectedProject] = useState(null)
-  const [spaces, setSpaces] = useState(null)
+const [spaces, setSpaces] = useState(null)
   const [projects, setProjects] = useState(null)
-  const [browseUserId, setBrowseUserId] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const loadSpaces = useCallback(async () => {
+    const json = await get('/api/spaces', token)
+    setSpaces(json?.spaces ?? null)
+  }, [token])
+
+  const loadProjects = useCallback(async (spaceId) => {
+    const json = await get(`/api/spaces/${spaceId}/projects`, token)
+    setProjects(json?.projects ?? null)
+  }, [token])
 
   useEffect(() => {
     fetch(`${BASE}/api/health`)
@@ -52,22 +62,11 @@ function App() {
   useEffect(() => {
     if (!token) return
     loadSpaces()
-  }, [token])
-
-  async function loadSpaces() {
-    const json = await get('/api/spaces', token)
-    setSpaces(json?.spaces ?? null)
-  }
+  }, [token, loadSpaces])
 
   useEffect(() => {
-    if (!token || !selectedSpace?._id) { setProjects(null); return }
-    loadProjects()
-  }, [token, selectedSpace])
-
-  async function loadProjects() {
-    const json = await get(`/api/spaces/${selectedSpace._id}/projects`, token)
-    setProjects(json?.projects ?? null)
-  }
+    if (token && selectedSpace?._id) loadProjects(selectedSpace._id)
+  }, [token, selectedSpace, loadProjects])
 
   const stale = user?.name?.slice(0, 2)?.toUpperCase() ?? 'SC'
   const isAdmin = user?.role === 'ADMIN'
@@ -79,12 +78,20 @@ function App() {
     setActiveView('auth'); setAuthMode('login')
     setSelectedSpace(null); setSelectedProject(null)
     setSpaces(null); setProjects(null)
+    setSidebarOpen(false)
   }
 
   return (
     <main className="app-shell">
       <nav className="topbar">
-        <div className="brand-mark"><span>SC</span> Study Companion</div>
+        <div className="topbar-left">
+          {token && (
+            <button className={sidebarOpen ? 'hamburger open' : 'hamburger'} aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'} onClick={() => setSidebarOpen((open) => !open)}>
+              <span /><span /><span />
+            </button>
+          )}
+          <div className="brand-mark"><span>SC</span> Study Companion</div>
+        </div>
         <div className="topbar-actions">
           <div className="environment"><span className="status-dot" /> API <strong>{apiStatus}</strong></div>
           {token ? (
@@ -106,15 +113,16 @@ function App() {
         </div>
       ) : (
         <div className="workspace-layout">
-          <aside className="sidebar">
+          {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+          <aside className={sidebarOpen ? 'sidebar sidebar-open' : 'sidebar'}>
             <p className="section-label">Your learning system</p>
-            <button className={activeView === 'dashboard' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveView('dashboard')}>⌂ <span>Dashboard</span></button>
-            <button className={activeView === 'spaces' || activeView === 'space-detail' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('spaces'); setSelectedProject(null) }}>▦ <span>Spaces</span></button>
-            {isAdmin && <button className={activeView === 'admin' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('admin'); setBrowseUserId(null) }}>⊕ <span>Admin</span></button>}
+            <button className={activeView === 'dashboard' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('dashboard'); setSidebarOpen(false) }}>⌂ <span>Dashboard</span></button>
+            <button className={activeView === 'spaces' || activeView === 'space-detail' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('spaces'); setSelectedProject(null); setSidebarOpen(false) }}>▦ <span>Spaces</span></button>
+            {isAdmin && <button className={activeView === 'admin' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('admin'); setSidebarOpen(false) }}>⊕ <span>Admin</span></button>}
             <div className="sidebar-rule" />
             <p className="sidebar-note">Each space holds the projects, materials, and progress that belong together.</p>
             <div className="sidebar-spacer" />
-            {token && <button className="nav-item" onClick={signOut}>↩ <span>Sign out</span></button>}
+            {token && <button className="nav-item" onClick={() => { signOut(); setSidebarOpen(false) }}>↩ <span>Sign out</span></button>}
           </aside>
           <section className="workspace-content">
             <div className="breadcrumbs">
@@ -125,8 +133,8 @@ function App() {
             </div>
 
             {activeView === 'dashboard' && <Dashboard user={user} spaces={spaces} onSpaces={() => { setActiveView('spaces'); setSelectedProject(null) }} />}
-            {activeView === 'spaces' && <Spaces spaces={spaces} onSelect={(space) => { setSelectedSpace(space); setActiveView('space-detail'); setSelectedProject(null) }} onCreated={loadSpaces} token={token} />}
-            {activeView === 'space-detail' && selectedSpace && <SpaceDetail token={token} space={selectedSpace} projects={projects} onSelectProject={(project) => { setSelectedProject(project); setActiveView('project') }} onCreated={loadProjects} />}
+            {activeView === 'spaces' && <Spaces spaces={spaces} onSelect={(space) => { setSelectedSpace(space); setProjects(null); setActiveView('space-detail'); setSelectedProject(null) }} onCreated={loadSpaces} refreshSpaces={loadSpaces} token={token} />}
+            {activeView === 'space-detail' && selectedSpace && <SpaceDetail token={token} space={selectedSpace} projects={projects} onSelectProject={(project) => { setSelectedProject(project); setActiveView('project') }} onCreated={() => loadProjects(selectedSpace._id)} />}
             {activeView === 'project' && selectedProject && <ProjectWorkspace project={selectedProject} token={token} />}
             {activeView === 'admin' && isAdmin && <AdminDashboard user={user} />}
           </section>
@@ -157,13 +165,15 @@ function Dashboard({ user, onSpaces, spaces }) {
   )
 }
 
-function Spaces({ spaces, onSelect, onCreated, token }) {
+function Spaces({ spaces, onSelect, onCreated, refreshSpaces, token }) {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [color, setColor] = useState(spaceColors[0])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+
+  useEffect(() => { refreshSpaces() }, [refreshSpaces])
 
   async function createSpace(e) {
     e.preventDefault()
